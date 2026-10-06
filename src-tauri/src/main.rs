@@ -224,6 +224,76 @@ fn set_macos_dock_icon(png_bytes: &[u8]) {
 fn ensure_macos_transparency(w: &tauri::WebviewWindow) {
     use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial};
     let _ = apply_vibrancy(w, NSVisualEffectMaterial::HudWindow, None, None);
+
+    if let Ok(ns_win) = w.ns_window() {
+        unsafe {
+            type MsgSend0 = unsafe extern "C" fn(*mut std::ffi::c_void, *mut std::ffi::c_void) -> *mut std::ffi::c_void;
+            type MsgSendInt = unsafe extern "C" fn(*mut std::ffi::c_void, *mut std::ffi::c_void, isize) -> *mut std::ffi::c_void;
+            type MsgSendFloat = unsafe extern "C" fn(*mut std::ffi::c_void, *mut std::ffi::c_void, f64);
+
+            extern "C" {
+                fn sel_registerName(name: *const std::os::raw::c_char) -> *mut std::ffi::c_void;
+                fn objc_msgSend();
+            }
+
+            let msg_send0: MsgSend0 = std::mem::transmute(objc_msgSend as *const ());
+            let msg_send_int: MsgSendInt = std::mem::transmute(objc_msgSend as *const ());
+            let msg_send_float: MsgSendFloat = std::mem::transmute(objc_msgSend as *const ());
+
+            let sel_content_view = sel_registerName(b"contentView\0".as_ptr() as _);
+            let sel_view_with_tag = sel_registerName(b"viewWithTag:\0".as_ptr() as _);
+            let sel_set_alpha = sel_registerName(b"setAlphaValue:\0".as_ptr() as _);
+
+            let content_view = msg_send0(ns_win as _, sel_content_view);
+            if !content_view.is_null() {
+                // NS_VIEW_TAG_BLUR_VIEW is 91376254 from window_vibrancy
+                let blur_view = msg_send_int(content_view, sel_view_with_tag, 91376254);
+                if !blur_view.is_null() {
+                    // Set blur opacity to 0.30 (soft subtle blur instead of heavy frosted blur)
+                    msg_send_float(blur_view, sel_set_alpha, 0.30);
+                }
+            }
+        }
+    }
+}
+
+#[tauri::command]
+fn set_window_blur_intensity(app: tauri::AppHandle, intensity: f64) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(w) = app.get_webview_window("main") {
+            if let Ok(ns_win) = w.ns_window() {
+                unsafe {
+                    type MsgSend0 = unsafe extern "C" fn(*mut std::ffi::c_void, *mut std::ffi::c_void) -> *mut std::ffi::c_void;
+                    type MsgSendInt = unsafe extern "C" fn(*mut std::ffi::c_void, *mut std::ffi::c_void, isize) -> *mut std::ffi::c_void;
+                    type MsgSendFloat = unsafe extern "C" fn(*mut std::ffi::c_void, *mut std::ffi::c_void, f64);
+
+                    extern "C" {
+                        fn sel_registerName(name: *const std::os::raw::c_char) -> *mut std::ffi::c_void;
+                        fn objc_msgSend();
+                    }
+
+                    let msg_send0: MsgSend0 = std::mem::transmute(objc_msgSend as *const ());
+                    let msg_send_int: MsgSendInt = std::mem::transmute(objc_msgSend as *const ());
+                    let msg_send_float: MsgSendFloat = std::mem::transmute(objc_msgSend as *const ());
+
+                    let sel_content_view = sel_registerName(b"contentView\0".as_ptr() as _);
+                    let sel_view_with_tag = sel_registerName(b"viewWithTag:\0".as_ptr() as _);
+                    let sel_set_alpha = sel_registerName(b"setAlphaValue:\0".as_ptr() as _);
+
+                    let content_view = msg_send0(ns_win as _, sel_content_view);
+                    if !content_view.is_null() {
+                        let blur_view = msg_send_int(content_view, sel_view_with_tag, 91376254);
+                        if !blur_view.is_null() {
+                            let clamped = intensity.clamp(0.0, 1.0);
+                            msg_send_float(blur_view, sel_set_alpha, clamped);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 
@@ -261,7 +331,8 @@ fn main() {
             list_branches,
             switch_branch,
             get_branch_comparison_info,
-            pull_branch
+            pull_branch,
+            set_window_blur_intensity
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

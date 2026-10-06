@@ -2,7 +2,7 @@
   import { onDestroy, onMount } from "svelte";
   import FileList from "./lib/FileList.svelte";
   import DiffView from "./lib/DiffView.svelte";
-  import { pickFolder, getDiff, getBranchComparisonInfo, getRepoFiles, getFileContent, saveFileContent, acceptHunk, rejectHunk, getCurrentBranch, listBranches, switchBranch, pullBranch, onChangesDetected } from "./lib/api.js";
+  import { pickFolder, getDiff, getBranchComparisonInfo, getRepoFiles, getFileContent, saveFileContent, acceptHunk, rejectHunk, getCurrentBranch, listBranches, switchBranch, pullBranch, onChangesDetected, setWindowBlurIntensity } from "./lib/api.js";
 
   let currentTheme = typeof window !== "undefined" ? localStorage.getItem("tengga_theme") || "glass" : "glass";
 
@@ -13,6 +13,11 @@
       try {
         localStorage.setItem("tengga_theme", t);
       } catch (e) {}
+    }
+    if (t === "glass") {
+      setWindowBlurIntensity(0.30);
+    } else {
+      setWindowBlurIntensity(0.0);
     }
   }
 

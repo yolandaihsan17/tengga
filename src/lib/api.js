@@ -58,3 +58,11 @@ export async function pullBranch(repoPath, branch) {
 export function onChangesDetected(callback) {
   return listen("changes-detected", callback);
 }
+
+export async function setWindowBlurIntensity(intensity) {
+  try {
+    return await invoke("set_window_blur_intensity", { intensity });
+  } catch (e) {
+    console.warn("Could not set blur intensity:", e);
+  }
+}
