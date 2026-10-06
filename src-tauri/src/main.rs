@@ -204,6 +204,19 @@ fn set_macos_dock_icon(png_bytes: &[u8]) {
         if !app.is_null() {
             msg_send1(app, sel_set_icon, img);
         }
+
+        let nsprocessinfo_class = objc_getClass(b"NSProcessInfo\0".as_ptr() as _);
+        let sel_process_info = sel_registerName(b"processInfo\0".as_ptr() as _);
+        let sel_set_process_name = sel_registerName(b"setProcessName:\0".as_ptr() as _);
+        let nsstring_class = objc_getClass(b"NSString\0".as_ptr() as _);
+        let sel_string_with_utf8 = sel_registerName(b"stringWithUTF8String:\0".as_ptr() as _);
+        let pinfo = msg_send0(nsprocessinfo_class, sel_process_info);
+        if !pinfo.is_null() {
+            let name_str = msg_send1(nsstring_class, sel_string_with_utf8, b"tengga\0".as_ptr() as _);
+            if !name_str.is_null() {
+                msg_send1(pinfo, sel_set_process_name, name_str);
+            }
+        }
     }
 }
 
