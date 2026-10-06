@@ -907,6 +907,7 @@
     font-weight: 700;
     color: var(--text-primary);
     margin-bottom: 6px;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
   }
 
   .placeholder-sub {
@@ -914,5 +915,6 @@
     color: var(--text-muted);
     max-width: 300px;
     line-height: 1.5;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
   }
 </style>
