@@ -14,3 +14,7 @@ Thumbs.db
 *.swo
 .vscode/
 .idea/
+
+# Internal docs
+PLAN.md
+plan.md
