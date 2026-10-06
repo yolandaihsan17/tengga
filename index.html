@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <title>TENGGA — Diff Review</title>
+    <script>
+      (function() {
+        try {
+          const t = localStorage.getItem('tengga_theme') || 'light';
+          document.documentElement.setAttribute('data-theme', t);
+        } catch (e) {}
+      })();
+    </script>
+    <style>
+      :root, :root[data-theme="light"] {
+        --theme-mode: light;
+        --bg-app: #f8f9fd;
+        --bg-topbar: #ffffff;
+        --bg-sidebar: #fbfcfe;
+        --bg-pane: #ffffff;
+        --bg-card: #ffffff;
+        --bg-subtle: #f4f6fb;
+        --bg-hover: #f1f5f9;
+        --bg-dropdown: #ffffff;
+        --backdrop-blur: none;
+        --backdrop-filter: none;
+
+        --border-subtle: #edf0f7;
+        --border-default: #e2e8f0;
+        --border-hover: #cbd5e1;
+
+        --text-primary: #0f172a;
+        --text-secondary: #475569;
+        --text-muted: #94a3b8;
+        --text-dim: #cbd5e1;
+
+        --accent-emerald: #059669;
+        --accent-emerald-hover: #047857;
+        --accent-emerald-dark: #065f46;
+        --accent-emerald-soft: #ecfdf5;
+        --accent-emerald-soft-hover: #d1fae5;
+        --accent-emerald-border: #a7f3d0;
+        --accent-glow: rgba(16, 185, 129, 0.15);
+
+        --diff-add-bg: #f0fdf4;
+        --diff-add-num-bg: #e8fbee;
+        --diff-add-text: #14532d;
+        --diff-add-sign: #16a34a;
+        --diff-del-bg: #fef2f2;
+        --diff-del-num-bg: #fde8e8;
+        --diff-del-text: #7f1d1d;
+        --diff-del-sign: #dc2626;
+        --diff-context-text: #334155;
+        --diff-gutter-bg: #f8fafc;
+        --diff-hunk-bg: #f1f4f9;
+
+        --editor-bg: #ffffff;
+        --editor-gutter-bg: #f8fafc;
+        --editor-gutter-text: #94a3b8;
+        --editor-text: #1e293b;
+        --editor-selection: #d1fae5;
+        --shadow-popover: 0 12px 36px rgba(100, 110, 140, 0.15);
+        --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.03);
+      }
+
+      :root[data-theme="dark"] {
+        --theme-mode: dark;
+        --bg-app: #0b0f19;
+        --bg-topbar: #111827;
+        --bg-sidebar: #0e1526;
+        --bg-pane: #0b0f19;
+        --bg-card: #151d30;
+        --bg-subtle: #161f33;
+        --bg-hover: #1f2b45;
+        --bg-dropdown: #131c31;
+        --backdrop-blur: none;
+        --backdrop-filter: none;
+
+        --border-subtle: #1e293b;
+        --border-default: #25334d;
+        --border-hover: #3b4e70;
+
+        --text-primary: #f8fafc;
+        --text-secondary: #94a3b8;
+        --text-muted: #64748b;
+        --text-dim: #475569;
+
+        --accent-emerald: #10b981;
+        --accent-emerald-hover: #059669;
+        --accent-emerald-dark: #6ee7b7;
+        --accent-emerald-soft: rgba(16, 185, 129, 0.14);
+        --accent-emerald-soft-hover: rgba(16, 185, 129, 0.22);
+        --accent-emerald-border: rgba(16, 185, 129, 0.35);
+        --accent-glow: rgba(16, 185, 129, 0.25);
+
+        --diff-add-bg: rgba(16, 185, 129, 0.12);
+        --diff-add-num-bg: rgba(16, 185, 129, 0.18);
+        --diff-add-text: #f8fafc;
+        --diff-add-sign: #34d399;
+        --diff-del-bg: rgba(239, 68, 68, 0.12);
+        --diff-del-num-bg: rgba(239, 68, 68, 0.18);
+        --diff-del-text: #f8fafc;
+        --diff-del-sign: #f87171;
+        --diff-context-text: #cbd5e1;
+        --diff-gutter-bg: #0e1526;
+        --diff-hunk-bg: #162035;
+
+        --editor-bg: #0b0f19;
+        --editor-gutter-bg: #0e1526;
+        --editor-gutter-text: #64748b;
+        --editor-text: #e2e8f0;
+        --editor-selection: rgba(16, 185, 129, 0.30);
+        --shadow-popover: 0 16px 40px rgba(0, 0, 0, 0.55);
+        --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.35);
+      }
+
+      :root[data-theme="glass"] {
+        --theme-mode: glass;
+        --bg-app: rgba(12, 17, 29, 0.15);
+        --bg-topbar: rgba(15, 23, 42, 0.70);
+        --bg-sidebar: rgba(15, 23, 42, 0.68);
+        --bg-pane: transparent;
+        --bg-card: rgba(13, 20, 36, 0.78);
+        --bg-subtle: rgba(255, 255, 255, 0.08);
+        --bg-hover: rgba(255, 255, 255, 0.12);
+        --bg-dropdown: rgba(15, 23, 42, 0.92);
+        --backdrop-blur: blur(24px);
+        --backdrop-filter: blur(24px);
+
+        --border-subtle: rgba(255, 255, 255, 0.08);
+        --border-default: rgba(255, 255, 255, 0.14);
+        --border-hover: rgba(255, 255, 255, 0.25);
+
+        --text-primary: #ffffff;
+        --text-secondary: #e2e8f0;
+        --text-muted: #94a3b8;
+        --text-dim: #64748b;
+
+        --accent-emerald: #10b981;
+        --accent-emerald-hover: #34d399;
+        --accent-emerald-dark: #6ee7b7;
+        --accent-emerald-soft: rgba(16, 185, 129, 0.14);
+        --accent-emerald-soft-hover: rgba(16, 185, 129, 0.24);
+        --accent-emerald-border: rgba(16, 185, 129, 0.35);
+        --accent-glow: rgba(16, 185, 129, 0.25);
+
+        --diff-add-bg: rgba(16, 185, 129, 0.13);
+        --diff-add-num-bg: rgba(16, 185, 129, 0.18);
+        --diff-add-text: #f8fafc;
+        --diff-add-sign: #34d399;
+        --diff-del-bg: rgba(239, 68, 68, 0.13);
+        --diff-del-num-bg: rgba(239, 68, 68, 0.18);
+        --diff-del-text: #f8fafc;
+        --diff-del-sign: #f87171;
+        --diff-context-text: #cbd5e1;
+        --diff-gutter-bg: rgba(13, 20, 36, 0.55);
+        --diff-hunk-bg: rgba(255, 255, 255, 0.04);
+
+        --editor-bg: rgba(13, 20, 36, 0.78);
+        --editor-gutter-bg: rgba(10, 16, 30, 0.55);
+        --editor-gutter-text: #94a3b8;
+        --editor-text: #f8fafc;
+        --editor-selection: rgba(16, 185, 129, 0.35);
+        --shadow-popover: 0 20px 50px rgba(0, 0, 0, 0.55);
+        --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.30);
+      }
+
+      html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+        background: transparent !important;
+        font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      }
+
+      #app {
+        height: 100%;
+        width: 100%;
+        background: transparent;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

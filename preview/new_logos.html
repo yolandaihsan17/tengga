@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tengga — Clean Variations of Option D (Skeptical Eyes)</title>
+  <style>
+    :root {
+      --bg: #090c10;
+      --card-bg: #121620;
+      --card-border: #1e2636;
+      --card-hover: #3b82f6;
+      --text-main: #f0f6fc;
+      --text-sub: #8b949e;
+      --accent: #58a6ff;
+    }
+    body {
+      margin: 0;
+      padding: 40px 24px 80px;
+      background: var(--bg);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .container {
+      max-width: 1300px;
+      margin: 0 auto;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: 30px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+    p.sub {
+      color: var(--text-sub);
+      font-size: 15px;
+      max-width: 720px;
+      margin: 0 auto 20px;
+      line-height: 1.5;
+    }
+    .comparison-note {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(88, 166, 255, 0.1);
+      border: 1px solid rgba(88, 166, 255, 0.25);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      color: #93c5fd;
+    }
+    .section-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin: 36px 0 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid #1c2230;
+      padding-bottom: 10px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+    }
+    .card:hover {
+      transform: translateY(-5px);
+      border-color: var(--card-hover);
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55);
+    }
+    .card.original {
+      opacity: 0.75;
+      border-style: dashed;
+    }
+    .card.original:hover {
+      opacity: 1;
+    }
+    .badge {
+      display: inline-block;
+      background: #1a2233;
+      color: var(--accent);
+      border: 1px solid #2a3854;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 12px;
+      margin-bottom: 14px;
+    }
+    .badge.pick {
+      background: rgba(34, 197, 94, 0.15);
+      border-color: #22c55e;
+      color: #4ade80;
+    }
+    .main-img {
+      width: 230px;
+      height: 230px;
+      border-radius: 34px;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5);
+      margin-bottom: 18px;
+      object-fit: cover;
+      background: #000;
+    }
+    .title {
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: #ffffff;
+    }
+    .desc {
+      font-size: 13px;
+      color: var(--text-sub);
+      line-height: 1.45;
+      margin-bottom: 18px;
+      flex: 1;
+    }
+    .dock-preview {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 12px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      box-sizing: border-box;
+    }
+    .dock-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+    }
+    .dock-item span {
+      font-size: 10px;
+      color: #6e7681;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .dock-img-64 {
+      width: 48px;
+      height: 48px;
+      border-radius: 11px;
+    }
+    .dock-img-32 {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>✨ Opsi D (Skeptical Eyes) — Versi Lebih Clean & Modern</h1>
+      <p class="sub">
+        Menghilangkan garis tebal komik/kartun yang terlalu kekanak-kanakan, digantikan dengan estetika flat vector murni, kurva presisi, dan nuansa tech developer icon yang elegan.
+      </p>
+      <div class="comparison-note">
+        💡 Outline tebal komik dihilangkan · Kontras siluet dipertajam · Sangat serasi dengan Dark Mode Tengga
+      </div>
+    </header>
+
+    <div class="section-title">
+      <span>🎯 4 Variasi Clean untuk Opsi D</span>
+    </div>
+
+    <div class="grid">
+      <!-- D2: Sharp Minimalist -->
+      <div class="card">
+        <div class="badge pick">⭐ Rekomendasi 1 (D.2)</div>
+        <img class="main-img" src="./option_d2_sharp_minimalist.jpg" alt="Option D2">
+        <div class="title">D.2 — Sharp Minimalist Vector</div>
+        <div class="desc">
+          Siluet vektor hitam-putih murni tanpa outline komik. Sangat tajam dan percaya diri. Alis kiri terangkat dengan lekukan tajam, mata kanan menyipit kritis. Ekstrem keterbacaannya di ukuran Dock terkecil.
+        </div>
+        <div class="dock-preview">
+          <div class="dock-item">
+            <img class="dock-img-64" src="./option_d2_sharp_minimalist.jpg" alt="48px">
+            <span>Dock (48px)</span>
+          </div>
+          <div class="dock-item">
+            <img class="dock-img-32" src="./option_d2_sharp_minimalist.jpg" alt="28px">
+            <span>Mini (28px)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- D3: Sleek Tech Calm -->
+      <div class="card">
+        <div class="badge pick">⭐ Rekomendasi 2 (D.3)</div>
+        <img class="main-img" src="./option_d3_sleek_tech.jpg" alt="Option D3">
+        <div class="title">D.3 — Sleek Tech Calm</div>
+        <div class="desc">
+          Pendekatan modern yang tenang dan matang (*mature & sleek*). Alis abu-abu arang dengan bentuk mata melingkar lembut dan pupil gelap melirik ke kanan. Border squircle 1px sangat rapi ala Apple HIG.
+        </div>
+        <div class="dock-preview">
+          <div class="dock-item">
+            <img class="dock-img-64" src="./option_d3_sleek_tech.jpg" alt="48px">
+            <span>Dock (48px)</span>
+          </div>
+          <div class="dock-item">
+            <img class="dock-img-32" src="./option_d3_sleek_tech.jpg" alt="28px">
+            <span>Mini (28px)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- D1: Flat Vector Cut -->
+      <div class="card">
+        <div class="badge">Variasi D.1</div>
+        <img class="main-img" src="./option_d1_flat_vector.jpg" alt="Option D1">
+        <div class="title">D.1 — Soft Arch Vector</div>
+        <div class="desc">
+          Bentuk alis abu-abu terang yang melengkung dinamis di atas kelopak mata. Tetap mempertahankan ekspresi heran/kritis tapi jauh lebih bersih tanpa stroke hitam tebal.
+        </div>
+        <div class="dock-preview">
+          <div class="dock-item">
+            <img class="dock-img-64" src="./option_d1_flat_vector.jpg" alt="48px">
+            <span>Dock (48px)</span>
+          </div>
+          <div class="dock-item">
+            <img class="dock-img-32" src="./option_d1_flat_vector.jpg" alt="28px">
+            <span>Mini (28px)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- D4: Monoline Stroke -->
+      <div class="card">
+        <div class="badge">Variasi D.4</div>
+        <img class="main-img" src="./option_d4_monoline_stroke.jpg" alt="Option D4">
+        <div class="title">D.4 — Monoline Tech Stroke</div>
+        <div class="desc">
+          Gaya monoline / icon stroke outline dengan sentuhan garis putih & cyan minimalis. Sangat geometris dan menyerupai icon toolkit developer (ala Lucide / Phosphor).
+        </div>
+        <div class="dock-preview">
+          <div class="dock-item">
+            <img class="dock-img-64" src="./option_d4_monoline_stroke.jpg" alt="48px">
+            <span>Dock (48px)</span>
+          </div>
+          <div class="dock-item">
+            <img class="dock-img-32" src="./option_d4_monoline_stroke.jpg" alt="28px">
+            <span>Mini (28px)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Comparison with original D -->
+    <div class="section-title" style="margin-top: 50px;">
+      <span>🔍 Pembanding: Opsi D Versi Awal (Sebelumnya)</span>
+    </div>
+    <div style="max-width: 380px;">
+      <div class="card original">
+        <div class="badge" style="background: #332020; border-color: #552828; color: #f87171;">Versi Lama (Terlalu Kartun)</div>
+        <img class="main-img" src="./option_d_skeptical_reviewer.jpg" alt="Old Option D">
+        <div class="title">Original Opsi D</div>
+        <div class="desc">
+          Versi sebelumnya yang memiliki garis stroke hitam tebal dan highlight pupil bergaya komik.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
