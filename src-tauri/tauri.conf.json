@@ -13,6 +13,7 @@
     "macOSPrivateApi": true,
     "windows": [
       {
+        "label": "main",
         "title": "Tengga — Diff Review",
         "width": 1100,
         "height": 750,

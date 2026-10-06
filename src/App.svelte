@@ -4,7 +4,7 @@
   import DiffView from "./lib/DiffView.svelte";
   import { pickFolder, getDiff, getBranchComparisonInfo, getRepoFiles, getFileContent, saveFileContent, acceptHunk, rejectHunk, getCurrentBranch, listBranches, switchBranch, pullBranch, onChangesDetected } from "./lib/api.js";
 
-  let currentTheme = typeof window !== "undefined" ? localStorage.getItem("tengga_theme") || "light" : "light";
+  let currentTheme = typeof window !== "undefined" ? localStorage.getItem("tengga_theme") || "glass" : "glass";
 
   function setTheme(t) {
     currentTheme = t;
@@ -17,7 +17,7 @@
   }
 
   onMount(() => {
-    const saved = localStorage.getItem("tengga_theme") || "light";
+    const saved = localStorage.getItem("tengga_theme") || "glass";
     setTheme(saved);
   });
 
