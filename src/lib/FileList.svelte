@@ -409,7 +409,7 @@
   .sidebar-header {
     padding: 10px 12px;
     background: var(--bg-topbar);
-    border-bottom: 1px solid var(--border-subtle);
+    border-bottom: none;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -424,7 +424,7 @@
   .segmented-control {
     display: flex;
     background: var(--bg-subtle);
-    border: 1px solid var(--border-default);
+    border: none;
     border-radius: 9999px;
     padding: 2px;
     flex: 1;
@@ -444,7 +444,7 @@
     width: 26px;
     height: 26px;
     background: var(--bg-card);
-    border: 1px solid var(--border-default);
+    border: none;
     border-radius: 50%;
     color: var(--text-muted);
     cursor: pointer;
@@ -455,7 +455,6 @@
 
   .tree-control-btn:hover {
     background: var(--bg-hover);
-    border-color: var(--border-hover);
     color: var(--accent-emerald);
   }
 
@@ -550,7 +549,7 @@
 
   .sidebar-footer {
     padding: 6px 10px;
-    border-top: 1px solid var(--border-subtle);
+    border-top: none;
     background: var(--bg-topbar);
     display: flex;
     align-items: center;
@@ -567,7 +566,7 @@
     display: inline-flex;
     align-items: center;
     background: var(--bg-subtle);
-    border: 1px solid var(--border-default);
+    border: none;
     border-radius: 9999px;
     padding: 2px;
     gap: 1px;
@@ -623,7 +622,7 @@
   }
 
   .dot-sep {
-    color: var(--border-default);
+    color: var(--text-dim);
     margin: 0 4px;
   }
 
@@ -711,7 +710,7 @@
     height: 32px;
     border-radius: 50%;
     background: var(--accent-emerald-soft);
-    border: 1px solid var(--accent-emerald-border);
+    border: none;
     color: var(--accent-emerald);
     display: flex;
     align-items: center;

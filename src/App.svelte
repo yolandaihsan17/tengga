@@ -686,7 +686,7 @@
     padding: 0 16px;
     height: 50px;
     background: var(--bg-topbar);
-    border-bottom: 1px solid var(--border-subtle);
+    border-bottom: none;
     user-select: none;
     flex-shrink: 0;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
@@ -710,12 +710,11 @@
     padding: 5px 12px;
     border-radius: 9999px;
     cursor: default;
-    border: 1px solid var(--border-default);
+    border: none;
     transition: all 0.12s ease;
   }
 
   .repo-brand-title:hover {
-    border-color: var(--border-hover);
     background: var(--bg-hover);
   }
 
@@ -777,7 +776,7 @@
     display: inline-flex;
     align-items: center;
     background: var(--bg-subtle);
-    border: 1px solid var(--border-default);
+    border: none;
     border-radius: 9999px;
     height: 34px;
     padding: 0 4px 0 2px;
@@ -787,18 +786,15 @@
 
   .branch-btn-group.source-group:hover,
   .branch-btn-group.source-group:focus-within {
-    border-color: var(--accent-emerald);
     background: var(--accent-emerald-soft);
   }
 
   .branch-btn-group.target-group.is-mr-mode {
     background: var(--accent-emerald-soft);
-    border-color: var(--accent-emerald-border);
   }
 
   .branch-btn-group.target-group.is-mr-mode:hover,
   .branch-btn-group.target-group.is-mr-mode:focus-within {
-    border-color: var(--accent-emerald);
     background: var(--accent-emerald-soft-hover);
   }
 
@@ -866,7 +862,7 @@
     width: 26px;
     height: 26px;
     background: var(--bg-card);
-    border: 1px solid var(--border-default);
+    border: none;
     border-radius: 50%;
     cursor: pointer;
     color: var(--text-secondary);
@@ -880,7 +876,6 @@
   .branch-action-btn:hover:not(:disabled) {
     background: var(--bg-hover);
     color: var(--accent-emerald);
-    border-color: var(--border-hover);
   }
 
   .target-group.is-mr-mode .branch-action-btn:hover:not(:disabled) {
@@ -890,7 +885,6 @@
   .branch-action-btn.reset-btn:hover {
     color: #ef4444;
     background: rgba(239, 68, 68, 0.15);
-    border-color: rgba(239, 68, 68, 0.35);
   }
 
   .branch-action-btn:disabled {
@@ -924,7 +918,7 @@
     font-weight: 700;
     background: var(--accent-emerald-soft);
     color: var(--accent-emerald-dark);
-    border: 1px solid var(--accent-emerald-border);
+    border: none;
     border-radius: 9999px;
     padding: 1px 6px;
     line-height: 1.2;
@@ -937,7 +931,7 @@
     width: 34px;
     height: 34px;
     background: var(--bg-subtle);
-    border: 1px solid var(--border-default);
+    border: none;
     border-radius: 50%;
     color: var(--text-secondary);
     cursor: pointer;
@@ -949,7 +943,6 @@
   .refresh-icon-btn:hover:not(:disabled) {
     background: var(--bg-card);
     color: var(--accent-emerald);
-    border-color: var(--border-hover);
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
   }
 
@@ -967,7 +960,7 @@
     min-width: 260px;
     max-width: 360px;
     background: var(--bg-dropdown);
-    border: 1px solid var(--border-default);
+    border: none;
     border-radius: 16px;
     box-shadow: var(--shadow-popover);
     backdrop-filter: var(--backdrop-filter, none);
@@ -988,7 +981,7 @@
     font-size: 11px;
     font-weight: 700;
     color: var(--text-secondary);
-    border-bottom: 1px solid var(--border-subtle);
+    border-bottom: none;
     letter-spacing: 0.3px;
     text-transform: uppercase;
   }
@@ -1024,7 +1017,6 @@
   }
 
   .branch-filter-input:focus {
-    border-color: var(--accent-emerald);
     background: var(--bg-card);
     box-shadow: 0 0 0 3px var(--accent-glow);
   }
@@ -1142,7 +1134,7 @@
   .compare-mode-badge.default {
     background: var(--bg-subtle);
     color: var(--text-secondary);
-    border: 1px solid var(--border-default);
+    border: none;
   }
 
   .compare-item.mode-option.is-current .compare-mode-badge.default {
@@ -1170,7 +1162,7 @@
     display: flex;
     align-items: center;
     padding: 8px 8px 4px;
-    border-top: 1px solid var(--border-subtle);
+    border-top: none;
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.5px;
@@ -1230,13 +1222,13 @@
 
   .error-banner {
     background: rgba(239, 68, 68, 0.15);
-    border-bottom: 1px solid rgba(239, 68, 68, 0.3);
+    border-bottom: none;
     color: #f87171;
   }
 
   .success-banner {
     background: var(--accent-emerald-soft);
-    border-bottom: 1px solid var(--accent-emerald-border);
+    border-bottom: none;
     color: var(--accent-emerald-dark);
   }
 
@@ -1291,7 +1283,7 @@
 
   .sidebar-panel {
     width: 320px;
-    border-right: 1px solid var(--border-subtle);
+    border-right: none;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;

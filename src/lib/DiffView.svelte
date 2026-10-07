@@ -457,7 +457,7 @@
     gap: 8px;
     padding: 10px 16px 8px;
     background: var(--bg-topbar);
-    border-bottom: 1px solid var(--border-subtle);
+    border-bottom: none;
     flex-shrink: 0;
   }
 
@@ -494,7 +494,7 @@
   }
 
   .crumb-sep {
-    color: var(--border-default);
+    color: var(--text-dim);
     font-size: 11px;
     user-select: none;
   }
@@ -555,7 +555,7 @@
   .view-switch {
     display: flex;
     background: var(--bg-subtle);
-    border: 1px solid var(--border-default);
+    border: none;
     border-radius: 9999px;
     padding: 2px;
   }
@@ -595,13 +595,13 @@
   .stat-badge.add {
     background: var(--diff-add-bg);
     color: var(--diff-add-sign);
-    border: 1px solid var(--accent-emerald-border);
+    border: none;
   }
 
   .stat-badge.del {
     background: var(--diff-del-bg);
     color: var(--diff-del-sign);
-    border: 1px solid rgba(239, 68, 68, 0.3);
+    border: none;
   }
 
   .diff-scroll {
@@ -623,7 +623,7 @@
     flex: 1;
     min-height: 0;
     background: var(--editor-bg);
-    border: 1px solid var(--border-default);
+    border: none;
     border-radius: 14px;
     overflow: hidden;
     position: relative;
@@ -634,7 +634,7 @@
 
   .gutter-col {
     background: var(--editor-gutter-bg);
-    border-right: 1px solid var(--border-subtle);
+    border-right: none;
     overflow: hidden;
     user-select: none;
     flex-shrink: 0;
@@ -871,7 +871,7 @@
     margin: 40px auto;
     max-width: 380px;
     background: var(--bg-card);
-    border: 1px solid var(--border-default);
+    border: none;
     border-radius: 16px;
     box-shadow: var(--shadow-popover);
     padding: 24px;

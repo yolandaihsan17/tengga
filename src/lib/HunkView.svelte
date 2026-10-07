@@ -80,7 +80,7 @@
 
 <style>
   .hunk-card {
-    border: 1px solid var(--border-default);
+    border: none;
     border-radius: 14px;
     margin-bottom: 16px;
     background: var(--bg-card);
@@ -95,7 +95,7 @@
     justify-content: space-between;
     align-items: center;
     background: var(--bg-topbar);
-    border-bottom: 1px solid var(--border-subtle);
+    border-bottom: none;
     padding: 8px 12px;
   }
 
@@ -111,7 +111,7 @@
     font-weight: 500;
     color: var(--text-secondary);
     background: var(--bg-subtle);
-    border: 1px solid var(--border-default);
+    border: none;
     padding: 2px 8px;
     border-radius: 9999px;
   }
@@ -128,19 +128,19 @@
   .source-badge.unstaged {
     background: rgba(245, 158, 11, 0.15);
     color: #f59e0b;
-    border: 1px solid rgba(245, 158, 11, 0.35);
+    border: none;
   }
 
   .source-badge.staged {
     background: var(--accent-emerald-soft);
     color: var(--accent-emerald);
-    border: 1px solid var(--accent-emerald-border);
+    border: none;
   }
 
   .source-badge.branch {
     background: var(--accent-emerald-soft);
     color: var(--accent-emerald);
-    border: 1px solid var(--accent-emerald-border);
+    border: none;
   }
 
   .hunk-actions {
@@ -156,18 +156,16 @@
     cursor: pointer;
     font-family: inherit;
     transition: all 0.12s ease;
-    border: 1px solid transparent;
+    border: none;
   }
 
   .btn-accept {
     background: var(--accent-emerald-soft);
     color: var(--accent-emerald);
-    border-color: var(--accent-emerald-border);
   }
 
   .btn-accept:hover {
     background: var(--accent-emerald-soft-hover);
-    border-color: var(--accent-emerald);
     color: var(--accent-emerald-dark);
     box-shadow: 0 2px 6px var(--accent-glow);
   }
@@ -175,12 +173,10 @@
   .btn-reject {
     background: rgba(239, 68, 68, 0.12);
     color: #f87171;
-    border-color: rgba(239, 68, 68, 0.3);
   }
 
   .btn-reject:hover {
     background: rgba(239, 68, 68, 0.22);
-    border-color: rgba(239, 68, 68, 0.45);
     color: #fca5a5;
     box-shadow: 0 2px 6px rgba(239, 68, 68, 0.2);
   }
@@ -217,11 +213,11 @@
   }
 
   .old-num {
-    border-right: 1px solid var(--border-subtle);
+    border-right: none;
   }
 
   .new-num {
-    border-right: 1px solid var(--border-default);
+    border-right: none;
   }
 
   .marker {

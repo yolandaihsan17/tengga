@@ -207,7 +207,7 @@
     right: 20px;
     z-index: 100;
     background: var(--bg-dropdown);
-    border: 1px solid var(--border-default);
+    border: none;
     border-radius: 16px;
     box-shadow: var(--shadow-popover);
     backdrop-filter: var(--backdrop-filter, none);
@@ -257,14 +257,13 @@
     align-items: center;
     flex: 1;
     background: var(--bg-subtle);
-    border: 1px solid var(--border-default);
+    border: none;
     border-radius: 9999px;
     padding: 2px 8px;
     transition: all 0.15s ease;
   }
 
   .input-container:focus-within {
-    border-color: var(--accent-emerald);
     background: var(--bg-card);
     box-shadow: 0 0 0 3px var(--accent-glow);
   }
@@ -370,7 +369,7 @@
 
   .text-btn {
     background: var(--bg-subtle);
-    border: 1px solid var(--border-default);
+    border: none;
     color: var(--text-secondary);
     font-size: 11px;
     padding: 3px 10px;
@@ -384,7 +383,6 @@
 
   .text-btn:hover:not(:disabled) {
     background: var(--accent-emerald-soft);
-    border-color: var(--accent-emerald-border);
     color: var(--accent-emerald);
   }
 
