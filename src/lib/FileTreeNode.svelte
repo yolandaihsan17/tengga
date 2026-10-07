@@ -122,6 +122,7 @@
   .file-row {
     color: var(--text-primary);
     font-weight: 450;
+    padding: 6px 4px;
   }
 
   .file-row:hover {
@@ -143,7 +144,6 @@
 
   .file-row.active {
     background: var(--accent-emerald-soft);
-    border: 1px solid var(--accent-emerald-border);
     color: var(--text-primary) !important;
   }
 

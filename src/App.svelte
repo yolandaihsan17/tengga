@@ -540,12 +540,8 @@
                         <span class="compare-mode-badge default">HEAD</span>
                         <div class="compare-item-desc">
                           <span class="compare-item-title">Latest Commit (HEAD)</span>
-                          <span class="compare-item-sub">Compare working tree changes against latest commit</span>
                         </div>
                       </div>
-                      {#if baseBranch === null}
-                        <span class="branch-check" title="Active">✓</span>
-                      {/if}
                     </button>
                   </div>
 
@@ -1017,8 +1013,7 @@
   .branch-filter-input {
     width: 100%;
     box-sizing: border-box;
-    background: var(--bg-subtle);
-    border: 1px solid var(--border-default);
+    border: none;
     border-radius: 9999px;
     color: var(--text-primary);
     font-size: 12px;
@@ -1113,27 +1108,27 @@
     justify-content: space-between;
     padding: 8px 10px;
     background: transparent;
-    border: 1px solid var(--border-subtle);
     border-radius: 10px;
     cursor: pointer;
     text-align: left;
     transition: all 0.12s ease;
+    border:none;
   }
 
   .compare-item.mode-option:hover {
     background: var(--bg-hover);
-    border-color: var(--border-hover);
   }
 
   .compare-item.mode-option.is-current {
     background: var(--accent-emerald-soft);
-    border-color: var(--accent-emerald-border);
+    border: none;
   }
 
   .compare-item-left {
     display: flex;
     align-items: center;
     gap: 8px;
+    border: none;
   }
 
   .compare-mode-badge {
@@ -1153,7 +1148,6 @@
   .compare-item.mode-option.is-current .compare-mode-badge.default {
     background: var(--accent-emerald-soft);
     color: var(--accent-emerald);
-    border-color: var(--accent-emerald-border);
   }
 
   .compare-item-desc {

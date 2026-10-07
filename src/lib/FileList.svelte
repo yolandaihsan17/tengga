@@ -483,7 +483,6 @@
     color: var(--text-primary);
     font-weight: 700;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
-    border: 1px solid var(--border-default);
   }
 
   .filter-row {
@@ -495,9 +494,9 @@
   .filter-input {
     width: 100%;
     background: var(--bg-subtle);
-    border: 1px solid var(--border-default);
-    border-radius: 9999px;
+    border-radius: 4px;
     padding: 6px 24px 6px 12px;
+    border: none;
     font-size: 11.5px;
     color: var(--text-primary);
     outline: none;
@@ -511,9 +510,8 @@
   }
 
   .filter-input:focus {
-    border-color: var(--accent-emerald);
     background: var(--bg-card);
-    box-shadow: 0 0 0 3px var(--accent-glow);
+    box-shadow: 0 0 0 1px var(--accent-glow);
   }
 
   .clear-btn {
@@ -633,7 +631,6 @@
     display: flex;
     align-items: center;
     background: var(--accent-emerald-soft);
-    border: 1px solid var(--accent-emerald-border);
     border-radius: 12px;
     padding: 6px 10px;
     margin-top: 4px;
@@ -685,15 +682,13 @@
   .head-mode-banner {
     display: flex;
     align-items: center;
-    background: var(--accent-emerald-soft);
-    border: 1px solid var(--accent-emerald-border);
-    border-radius: 12px;
+    border-radius: 4px;
     padding: 6px 10px;
     margin-top: 4px;
   }
 
   .head-mode-title {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
     color: var(--accent-emerald-dark);
     white-space: nowrap;
