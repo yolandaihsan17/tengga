@@ -682,6 +682,8 @@
   }
 
   .app-topbar {
+    position: relative;
+    z-index: 100;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -1285,6 +1287,8 @@
   }
 
   .workspace-body {
+    position: relative;
+    z-index: 1;
     display: flex;
     flex: 1;
     overflow: hidden;
