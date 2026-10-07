@@ -32,8 +32,12 @@ fn start_watcher(app: tauri::AppHandle, state: State<AppState>, path: String) ->
 }
 
 #[tauri::command]
-fn get_worktrees(repo_path: String) -> Result<Vec<git::WorktreeInfo>, String> {
-    git::list_worktrees(&PathBuf::from(repo_path))
+async fn get_worktrees(repo_path: String) -> Result<Vec<git::WorktreeInfo>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        git::list_worktrees(&PathBuf::from(repo_path))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[derive(serde::Serialize)]
@@ -220,48 +224,84 @@ fn list_branches(repo_path: String) -> Result<Vec<String>, String> {
 }
 
 #[tauri::command]
-fn switch_branch(repo_path: String, branch: String) -> Result<(), String> {
-    git::switch_branch(&PathBuf::from(repo_path), &branch)
+async fn switch_branch(repo_path: String, branch: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        git::switch_branch(&PathBuf::from(repo_path), &branch)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn pull_branch(repo_path: String, branch: String) -> Result<String, String> {
-    git::pull_branch(&PathBuf::from(repo_path), &branch)
+async fn pull_branch(repo_path: String, branch: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        git::pull_branch(&PathBuf::from(repo_path), &branch)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn push_branch(repo_path: String, branch: String) -> Result<String, String> {
-    git::push_branch(&PathBuf::from(repo_path), &branch)
+async fn push_branch(repo_path: String, branch: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        git::push_branch(&PathBuf::from(repo_path), &branch)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn stage_file(repo_path: String, file_path: String) -> Result<(), String> {
-    git::stage_file(&PathBuf::from(repo_path), &file_path)
+async fn stage_file(repo_path: String, file_path: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        git::stage_file(&PathBuf::from(repo_path), &file_path)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn unstage_file(repo_path: String, file_path: String) -> Result<(), String> {
-    git::unstage_file(&PathBuf::from(repo_path), &file_path)
+async fn unstage_file(repo_path: String, file_path: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        git::unstage_file(&PathBuf::from(repo_path), &file_path)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn discard_file(repo_path: String, file_path: String) -> Result<(), String> {
-    git::discard_file(&PathBuf::from(repo_path), &file_path)
+async fn discard_file(repo_path: String, file_path: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        git::discard_file(&PathBuf::from(repo_path), &file_path)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn stage_all(repo_path: String) -> Result<(), String> {
-    git::stage_all(&PathBuf::from(repo_path))
+async fn stage_all(repo_path: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        git::stage_all(&PathBuf::from(repo_path))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn unstage_all(repo_path: String) -> Result<(), String> {
-    git::unstage_all(&PathBuf::from(repo_path))
+async fn unstage_all(repo_path: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        git::unstage_all(&PathBuf::from(repo_path))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn discard_all(repo_path: String) -> Result<(), String> {
-    git::discard_all(&PathBuf::from(repo_path))
+async fn discard_all(repo_path: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        git::discard_all(&PathBuf::from(repo_path))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[cfg(target_os = "macos")]

@@ -17,6 +17,7 @@
   export let onStageFile = null;
   export let onUnstageFile = null;
   export let onDiscardFile = null;
+  export let disabled = false;
 
   let activeView = "diff"; // "diff" | "content"
   let editedContent = "";
@@ -329,6 +330,7 @@
             {#if file.has_unstaged || file.is_untracked}
               <button
                 class="file-action-btn stage"
+                disabled={disabled}
                 on:click={() => onStageFile && onStageFile(file.path)}
                 title="Stage Changes (+)"
               >
@@ -339,6 +341,7 @@
               </button>
               <button
                 class="file-action-btn discard"
+                disabled={disabled}
                 on:click={() => onDiscardFile && onDiscardFile(file.path)}
                 title="Discard Changes"
               >
@@ -351,6 +354,7 @@
             {#if file.has_staged}
               <button
                 class="file-action-btn unstage"
+                disabled={disabled}
                 on:click={() => onUnstageFile && onUnstageFile(file.path)}
                 title="Unstage Changes (-)"
               >

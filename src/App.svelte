@@ -128,6 +128,15 @@
   let isLoadingContent = false;
   let contentError = null;
 
+  $: isGitOperating = Boolean(pullingBranch || pushingBranch || isSwitchingBranch);
+  $: gitOperationLabel = pullingBranch
+    ? `Pulling '${pullingBranch}' from remote...`
+    : pushingBranch
+    ? `Pushing '${pushingBranch}' to remote...`
+    : isSwitchingBranch
+    ? "Switching branch..."
+    : null;
+
   $: repoName = repoPath ? repoPath.split("/").filter(Boolean).pop() : null;
   $: diffFile = files.find((f) => f.path === selectedFile);
   $: currentFile = diffFile || (selectedFile ? { path: selectedFile, hunks: [], additions: 0, deletions: 0, is_binary: false } : null);
@@ -235,7 +244,9 @@
   }
 
   async function handlePullBranch(branchName) {
-    if (!repoPath || !branchName || pullingBranch) return;
+    if (!repoPath || !branchName || isGitOperating) return;
+    isBranchDropdownOpen = false;
+    isCompareDropdownOpen = false;
     pullingBranch = branchName;
     error = null;
     statusMessage = null;
@@ -251,7 +262,9 @@
   }
 
   async function handlePushBranch(branchName) {
-    if (!repoPath || !branchName || pushingBranch) return;
+    if (!repoPath || !branchName || isGitOperating) return;
+    isBranchDropdownOpen = false;
+    isCompareDropdownOpen = false;
     pushingBranch = branchName;
     error = null;
     statusMessage = null;
@@ -267,7 +280,7 @@
   }
 
   async function handleStage(filePath) {
-    if (!repoPath || !filePath) return;
+    if (!repoPath || !filePath || isGitOperating) return;
     try {
       await stageFile(repoPath, filePath);
       await refresh();
@@ -277,7 +290,7 @@
   }
 
   async function handleUnstage(filePath) {
-    if (!repoPath || !filePath) return;
+    if (!repoPath || !filePath || isGitOperating) return;
     try {
       await unstageFile(repoPath, filePath);
       await refresh();
@@ -287,7 +300,7 @@
   }
 
   async function handleDiscard(filePath) {
-    if (!repoPath || !filePath) return;
+    if (!repoPath || !filePath || isGitOperating) return;
     const proceed = confirm(`Are you sure you want to discard changes in '${filePath}'?\nThis cannot be undone.`);
     if (!proceed) return;
 
@@ -306,7 +319,7 @@
   }
 
   async function handleStageAll() {
-    if (!repoPath) return;
+    if (!repoPath || isGitOperating) return;
     try {
       await stageAll(repoPath);
       await refresh();
@@ -316,7 +329,7 @@
   }
 
   async function handleUnstageAll() {
-    if (!repoPath) return;
+    if (!repoPath || isGitOperating) return;
     try {
       await unstageAll(repoPath);
       await refresh();
@@ -326,7 +339,7 @@
   }
 
   async function handleDiscardAll() {
-    if (!repoPath) return;
+    if (!repoPath || isGitOperating) return;
     const proceed = confirm(`Are you sure you want to discard ALL unstaged changes?\nThis cannot be undone.`);
     if (!proceed) return;
 
@@ -343,7 +356,7 @@
   }
 
   async function toggleBranchDropdown() {
-    if (!repoPath) return;
+    if (!repoPath || isGitOperating) return;
     if (isBranchDropdownOpen) {
       isBranchDropdownOpen = false;
       return;
@@ -359,7 +372,7 @@
   }
 
   async function toggleCompareDropdown() {
-    if (!repoPath) return;
+    if (!repoPath || isGitOperating) return;
     if (isCompareDropdownOpen) {
       isCompareDropdownOpen = false;
       return;
@@ -375,13 +388,14 @@
   }
 
   async function handleSelectCompareBase(targetBranch) {
+    if (isGitOperating) return;
     baseBranch = targetBranch;
     isCompareDropdownOpen = false;
     await refresh();
   }
 
   async function handleSelectBranch(branchName) {
-    if (!repoPath || isSwitchingBranch || branchName === currentBranch) {
+    if (!repoPath || isGitOperating || isSwitchingBranch || branchName === currentBranch) {
       isBranchDropdownOpen = false;
       return;
     }
@@ -449,7 +463,7 @@
   }
 
   async function selectWorktree(targetPath) {
-    if (!targetPath || targetPath === repoPath) return;
+    if (!targetPath || targetPath === repoPath || isGitOperating) return;
 
     if (settings.warnUnsavedOnSwitch && unsavedBuffers.size > 0) {
       const proceed = confirm(
@@ -478,6 +492,7 @@
   }
 
   function closeWorktreeTab(path) {
+    if (isGitOperating) return;
     closedWorktreePaths.add(path);
     closedWorktreePaths = new Set(closedWorktreePaths);
     if (path === repoPath) {
@@ -489,7 +504,7 @@
   }
 
   function handleWindowFocus() {
-    if (settings.autoRefreshOnFocus && repoPath) {
+    if (settings.autoRefreshOnFocus && repoPath && !isGitOperating) {
       refresh();
       if (settings.autoDetectWorktrees) {
         loadWorktrees(repoPath, false);
@@ -498,6 +513,7 @@
   }
 
   async function openFolder() {
+    if (isGitOperating) return;
     error = null;
     try {
       const path = await pickFolder();
@@ -518,6 +534,7 @@
   }
 
   async function handleAccept(filePath, hunkId) {
+    if (isGitOperating) return;
     try {
       await acceptHunk(repoPath, hunkId);
       await refresh();
@@ -527,6 +544,7 @@
   }
 
   async function handleReject(filePath, hunkId) {
+    if (isGitOperating) return;
     try {
       await rejectHunk(repoPath, hunkId);
       await refresh();
@@ -671,6 +689,7 @@
               <button
                 class="branch-main-btn"
                 class:is-active={isBranchDropdownOpen}
+                disabled={isGitOperating}
                 on:click|stopPropagation={toggleBranchDropdown}
                 title="Current branch: {currentBranch}. Click to switch branch."
               >
@@ -684,7 +703,7 @@
               <button
                 class="branch-action-btn pull-btn"
                 class:is-loading={pullingBranch === currentBranch}
-                disabled={pullingBranch !== null || pushingBranch !== null}
+                disabled={isGitOperating}
                 on:click|stopPropagation={() => handlePullBranch(currentBranch)}
                 title="Pull latest for '{currentBranch}' from remote (git pull --ff-only)"
               >
@@ -700,7 +719,7 @@
               <button
                 class="branch-action-btn push-btn"
                 class:is-loading={pushingBranch === currentBranch}
-                disabled={pushingBranch !== null || pullingBranch !== null}
+                disabled={isGitOperating}
                 on:click|stopPropagation={() => handlePushBranch(currentBranch)}
                 title="Push '{currentBranch}' to remote (git push)"
               >
@@ -776,6 +795,7 @@
               <button
                 class="branch-main-btn"
                 class:is-active={isCompareDropdownOpen}
+                disabled={isGitOperating}
                 on:click|stopPropagation={toggleCompareDropdown}
                 title={baseBranch ? `MR Mode: Comparing changes against base branch '${baseBranch}'` : "Compare working tree changes against latest commit (HEAD)"}
               >
@@ -801,7 +821,7 @@
                 <button
                   class="branch-action-btn pull-btn"
                   class:is-loading={pullingBranch === baseBranch}
-                  disabled={pullingBranch !== null}
+                  disabled={isGitOperating}
                   on:click|stopPropagation={() => handlePullBranch(baseBranch)}
                   title="Pull / fetch latest changes for '{baseBranch}' from remote"
                 >
@@ -816,6 +836,7 @@
 
                 <button
                   class="branch-action-btn reset-btn"
+                  disabled={isGitOperating}
                   on:click|stopPropagation={() => handleSelectCompareBase(null)}
                   title="Reset to uncommitted working tree (HEAD)"
                 >✕</button>
@@ -893,7 +914,7 @@
               class="refresh-icon-btn"
               on:click={refresh}
               title="Refresh repository"
-              disabled={isRefreshing}
+              disabled={isGitOperating || isRefreshing}
             >
               <span class:spinning={isRefreshing}>↻</span>
             </button>
@@ -906,12 +927,13 @@
 
     <!-- Folder Switcher & Settings -->
     <div class="topbar-actions">
-      <button class="action-btn" on:click={openFolder}>
+      <button class="action-btn" disabled={isGitOperating} on:click={openFolder}>
         {repoPath ? "Switch Folder" : "Open Folder"}
       </button>
 
       <button
         class="action-icon-btn settings-btn"
+        disabled={isGitOperating}
         on:click={() => (isSettingsOpen = true)}
         title="Settings (⌘,)"
       >
@@ -929,9 +951,21 @@
       worktrees={visibleWorktrees}
       activePath={repoPath}
       dirtyWorktrees={dirtyWorktreePaths}
+      disabled={isGitOperating}
       onSelect={selectWorktree}
       onClose={closeWorktreeTab}
     />
+  {/if}
+
+  <!-- Prominent Git Operation Loading Banner -->
+  {#if isGitOperating}
+    <div class="git-operation-banner">
+      <div class="git-spinner"></div>
+      <div class="git-op-info">
+        <span class="git-op-title">{gitOperationLabel}</span>
+        <span class="git-op-detail">Communicating with remote repository, please wait...</span>
+      </div>
+    </div>
   {/if}
 
   <!-- Error & Status Notification Banners -->
@@ -961,6 +995,7 @@
         {baseBranch}
         {comparisonInfo}
         {currentTheme}
+        disabled={isGitOperating}
         onThemeChange={(t) => handleSaveSettings({ ...settings, theme: t })}
         onSelect={(p) => (selectedFile = p)}
         onStage={handleStage}
@@ -979,6 +1014,7 @@
         {isLoadingContent}
         {contentError}
         {baseBranch}
+        disabled={isGitOperating}
         onAccept={handleAccept}
         onReject={handleReject}
         onSave={handleSaveFile}
@@ -1578,6 +1614,58 @@
     gap: 10px;
     padding: 8px 16px;
     font-size: 12px;
+  }
+
+  .git-operation-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 18px;
+    background: var(--accent-emerald-soft);
+    border-bottom: 1px solid rgba(16, 185, 129, 0.25);
+    color: var(--text-primary);
+    z-index: 95;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    animation: fadeIn 0.15s ease;
+  }
+
+  .git-spinner {
+    width: 15px;
+    height: 15px;
+    border: 2px solid rgba(16, 185, 129, 0.25);
+    border-top-color: var(--accent-emerald);
+    border-radius: 50%;
+    animation: spin 0.75s linear infinite;
+    flex-shrink: 0;
+  }
+
+  .git-op-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .git-op-title {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--accent-emerald-dark);
+  }
+
+  .git-op-detail {
+    font-size: 11.5px;
+    color: var(--text-muted);
+  }
+
+  .branch-main-btn:disabled,
+  .action-btn:disabled,
+  .action-icon-btn:disabled,
+  .refresh-icon-btn:disabled {
+    opacity: 0.6;
+    cursor: wait !important;
+    pointer-events: none;
   }
 
   .error-banner {

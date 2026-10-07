@@ -7,6 +7,7 @@
   export let toggleFolder;
   export let onSelect;
   export let stageMode = null; // "staged" | "unstaged" | null
+  export let disabled = false;
   export let onStage = () => {};
   export let onUnstage = () => {};
   export let onDiscard = () => {};
@@ -57,6 +58,7 @@
             {toggleFolder}
             {onSelect}
             {stageMode}
+            {disabled}
             {onStage}
             {onUnstage}
             {onDiscard}
@@ -91,6 +93,7 @@
       <div class="file-hover-actions">
         <button
           class="file-action-icon-btn unstage-btn"
+          disabled={disabled}
           on:click|stopPropagation={() => onUnstage(node.path)}
           title="Unstage Changes (-)"
         >
@@ -103,6 +106,7 @@
       <div class="file-hover-actions">
         <button
           class="file-action-icon-btn stage-btn"
+          disabled={disabled}
           on:click|stopPropagation={() => onStage(node.path)}
           title="Stage Changes (+)"
         >
@@ -112,6 +116,7 @@
         </button>
         <button
           class="file-action-icon-btn discard-btn"
+          disabled={disabled}
           on:click|stopPropagation={() => onDiscard(node.path)}
           title="Discard Changes"
         >

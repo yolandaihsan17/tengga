@@ -17,6 +17,7 @@
   export let onStageAll = () => {};
   export let onUnstageAll = () => {};
   export let onDiscardAll = () => {};
+  export let disabled = false;
 
   let isStagedExpanded = true;
   let isUnstagedExpanded = true;
@@ -346,6 +347,7 @@
             <div class="section-header-actions" on:click|stopPropagation>
               <button
                 class="section-action-btn"
+                disabled={disabled}
                 on:click={onUnstageAll}
                 title="Unstage All Changes (-)"
               >
@@ -368,6 +370,7 @@
                   {toggleFolder}
                   {onSelect}
                   stageMode="staged"
+                  {disabled}
                   {onUnstage}
                 />
               {/each}
@@ -393,6 +396,7 @@
             {#if unstagedFilteredPaths.length > 0}
               <button
                 class="section-action-btn stage-all-btn"
+                disabled={disabled}
                 on:click={onStageAll}
                 title="Stage All Changes (+)"
               >
@@ -402,6 +406,7 @@
               </button>
               <button
                 class="section-action-btn discard-all-btn"
+                disabled={disabled}
                 on:click={onDiscardAll}
                 title="Discard All Changes"
               >
@@ -425,6 +430,7 @@
                 {toggleFolder}
                 {onSelect}
                 stageMode="unstaged"
+                {disabled}
                 {onStage}
                 {onDiscard}
               />
@@ -443,6 +449,7 @@
             {searchQuery}
             {toggleFolder}
             {onSelect}
+            {disabled}
           />
         {/each}
       </div>
