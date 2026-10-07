@@ -14,11 +14,15 @@
   <div class="folder-group">
     <button
       class="row folder-row"
-      style="padding-left: {8 + depth * 12}px;"
+      style="padding-left: {8 + depth * 14}px;"
       on:click={() => toggleFolder(node.path)}
       title={node.path}
     >
-      <span class="chevron">{expanded ? "▾" : "▸"}</span>
+      <span class="chevron" class:expanded>
+        <svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 4 10 8 6 12"></polyline>
+        </svg>
+      </span>
       <span class="folder-title" class:has-changes={node.hasChanges}>{node.name}</span>
       {#if node.hasChanges}
         <span class="change-circle folder-dot" title="Contains changes">●</span>
@@ -44,7 +48,7 @@
 {:else}
   <button
     class="row file-row"
-    style="padding-left: {22 + depth * 12}px;"
+    style="padding-left: {26 + depth * 14}px;"
     class:active={node.path === selectedFile}
     class:modified={node.hasChanges}
     class:is-dirty={node.isDirty}
@@ -77,19 +81,19 @@
     background: transparent;
     border: none;
     border-radius: 8px;
-    padding-top: 5px;
-    padding-bottom: 5px;
+    padding-top: 6px;
+    padding-bottom: 6px;
     padding-right: 8px;
     cursor: pointer;
-    font-size: 12px;
+    font-size: 11.5px;
     text-align: left;
     box-sizing: border-box;
-    transition: all 0.1s ease;
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    transition: background 0.1s ease, color 0.1s ease;
   }
 
   .folder-row {
     color: var(--text-primary);
-    font-weight: 600;
   }
 
   .folder-row:hover {
@@ -98,11 +102,20 @@
   }
 
   .chevron {
-    font-family: monospace;
-    font-size: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     width: 14px;
+    height: 14px;
     color: var(--text-muted);
     flex-shrink: 0;
+    margin-right: 4px;
+    user-select: none;
+    transition: transform 0.15s ease;
+  }
+
+  .chevron.expanded {
+    transform: rotate(90deg);
   }
 
   .folder-title {
@@ -110,8 +123,11 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 12px;
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    font-size: 11.5px;
+    font-weight: 600;
     color: var(--text-primary);
+    line-height: 1.3;
   }
 
   .folder-title.has-changes {
@@ -122,7 +138,9 @@
   .file-row {
     color: var(--text-primary);
     font-weight: 450;
-    padding: 6px 4px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    padding-right: 8px;
   }
 
   .file-row:hover {
@@ -166,6 +184,7 @@
     font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
     font-size: 11.5px;
     color: var(--text-primary);
+    line-height: 1.3;
   }
 
   .change-circle {

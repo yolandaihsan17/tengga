@@ -868,12 +868,10 @@
   }
 
   .status-panel {
-    margin: 40px auto;
+    margin: auto auto;
     max-width: 380px;
-    background: var(--bg-card);
     border: none;
     border-radius: 16px;
-    box-shadow: var(--shadow-popover);
     padding: 24px;
     text-align: center;
   }
