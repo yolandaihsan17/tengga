@@ -23,10 +23,17 @@ fn validate_git_repo(path: String) -> bool {
 
 #[tauri::command]
 fn start_watcher(app: tauri::AppHandle, state: State<AppState>, path: String) -> Result<(), String> {
-    let w = watcher::watch(app, &PathBuf::from(&path)).map_err(|e| e.to_string())?;
+    let repo = PathBuf::from(&path);
+    let common_dir = git::git_common_dir(&repo).ok();
+    let w = watcher::watch(app, &repo, common_dir.as_deref()).map_err(|e| e.to_string())?;
     *state.watcher.lock().unwrap() = Some(w);
     state.hunk_patches.lock().unwrap().clear();
     Ok(())
+}
+
+#[tauri::command]
+fn get_worktrees(repo_path: String) -> Result<Vec<git::WorktreeInfo>, String> {
+    git::list_worktrees(&PathBuf::from(repo_path))
 }
 
 #[derive(serde::Serialize)]
@@ -351,6 +358,7 @@ fn main() {
             switch_branch,
             get_branch_comparison_info,
             pull_branch,
+            get_worktrees,
             set_window_blur_intensity
         ])
         .run(tauri::generate_context!())

@@ -1,6 +1,98 @@
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct WorktreeInfo {
+    pub path: String,
+    pub name: String,
+    pub branch: String,
+    pub head: String,
+    pub is_main: bool,
+    pub is_current: bool,
+}
+
+pub fn git_common_dir(repo: &Path) -> Result<PathBuf, String> {
+    let output = run_git(repo, &["rev-parse", "--git-common-dir"])?;
+    let path_str = output.trim();
+    let p = Path::new(path_str);
+    if p.is_absolute() {
+        Ok(p.to_path_buf())
+    } else {
+        Ok(repo.join(p))
+    }
+}
+
+pub fn list_worktrees(repo: &Path) -> Result<Vec<WorktreeInfo>, String> {
+    let output = run_git(repo, &["worktree", "list", "--porcelain"])?;
+    let canon_current = std::fs::canonicalize(repo).unwrap_or_else(|_| repo.to_path_buf());
+
+    let mut worktrees = Vec::new();
+    let mut cur_path: Option<String> = None;
+    let mut cur_head: Option<String> = None;
+    let mut cur_branch: Option<String> = None;
+    let mut is_first = true;
+
+    for line in output.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            if let Some(path) = cur_path.take() {
+                let name = Path::new(&path)
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or(&path)
+                    .to_string();
+                let canon_wt = std::fs::canonicalize(&path).unwrap_or_else(|_| PathBuf::from(&path));
+                let is_current = canon_wt == canon_current;
+                worktrees.push(WorktreeInfo {
+                    path,
+                    name,
+                    branch: cur_branch.take().unwrap_or_else(|| "detached".to_string()),
+                    head: cur_head.take().unwrap_or_default(),
+                    is_main: is_first,
+                    is_current,
+                });
+                is_first = false;
+            }
+            continue;
+        }
+
+        if let Some(rest) = line.strip_prefix("worktree ") {
+            cur_path = Some(rest.trim().to_string());
+        } else if let Some(rest) = line.strip_prefix("HEAD ") {
+            cur_head = Some(rest.trim().to_string());
+        } else if let Some(rest) = line.strip_prefix("branch ") {
+            let b = rest.trim();
+            let short = b.strip_prefix("refs/heads/").unwrap_or(b);
+            cur_branch = Some(short.to_string());
+        } else if line == "detached" {
+            cur_branch = Some("HEAD (detached)".to_string());
+        } else if line == "bare" {
+            cur_branch = Some("(bare)".to_string());
+        }
+    }
+
+    if let Some(path) = cur_path.take() {
+        let name = Path::new(&path)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or(&path)
+            .to_string();
+        let canon_wt = std::fs::canonicalize(&path).unwrap_or_else(|_| PathBuf::from(&path));
+        let is_current = canon_wt == canon_current;
+        worktrees.push(WorktreeInfo {
+            path,
+            name,
+            branch: cur_branch.take().unwrap_or_else(|| "detached".to_string()),
+            head: cur_head.take().unwrap_or_default(),
+            is_main: is_first,
+            is_current,
+        });
+    }
+
+    Ok(worktrees)
+}
+
 
 pub fn is_repo(path: &Path) -> bool {
     Command::new("git")
@@ -219,3 +311,76 @@ fn run_git(repo: &Path, args: &[&str]) -> Result<String, String> {
     }
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_list_worktrees_current_repo() {
+        let repo_dir = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+        let worktrees = list_worktrees(repo_dir).expect("should list worktrees");
+        assert!(!worktrees.is_empty(), "should have at least 1 worktree");
+        assert!(worktrees[0].is_main, "first worktree should be main");
+        assert!(worktrees[0].is_current, "first worktree should be marked current");
+        assert_eq!(worktrees[0].branch, "main");
+    }
+
+    #[test]
+    fn test_git_common_dir() {
+        let repo_dir = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+        let common = git_common_dir(repo_dir).expect("should get common git dir");
+        assert!(common.exists(), "common git dir must exist on disk");
+        assert!(common.to_string_lossy().ends_with(".git"));
+    }
+
+    #[test]
+    fn test_list_worktrees_with_linked_worktree() {
+        let temp_dir = std::env::temp_dir().join(format!("tengga_wt_test_{}", uuid::Uuid::new_v4()));
+        let _ = std::fs::create_dir_all(&temp_dir);
+
+        let run = |dir: &Path, args: &[&str]| {
+            Command::new("git")
+                .args(args)
+                .current_dir(dir)
+                .output()
+                .expect("git cmd failed")
+        };
+
+        run(&temp_dir, &["init", "-b", "main"]);
+        run(&temp_dir, &["config", "user.name", "Test User"]);
+        run(&temp_dir, &["config", "user.email", "test@example.com"]);
+        let file_path = temp_dir.join("hello.txt");
+        let _ = std::fs::write(&file_path, "hello world");
+        run(&temp_dir, &["add", "hello.txt"]);
+        run(&temp_dir, &["commit", "-m", "initial commit"]);
+
+        let wt_path = std::env::temp_dir().join(format!("tengga_wt_linked_{}", uuid::Uuid::new_v4()));
+        let out = run(&temp_dir, &["worktree", "add", wt_path.to_str().unwrap(), "-b", "feature-branch"]);
+        assert!(out.status.success(), "worktree add should succeed: {}", String::from_utf8_lossy(&out.stderr));
+
+        // Test listing worktrees from main repo
+        let list_from_main = list_worktrees(&temp_dir).expect("should list from main");
+        assert_eq!(list_from_main.len(), 2);
+        assert!(list_from_main[0].is_main);
+        assert!(list_from_main[0].is_current);
+        assert!(!list_from_main[1].is_main);
+        assert!(!list_from_main[1].is_current);
+        assert_eq!(list_from_main[1].branch, "feature-branch");
+
+        // Test listing worktrees from linked worktree
+        let list_from_wt = list_worktrees(&wt_path).expect("should list from wt");
+        assert_eq!(list_from_wt.len(), 2);
+        assert!(list_from_wt[0].is_main);
+        assert!(!list_from_wt[0].is_current);
+        assert!(!list_from_wt[1].is_main);
+        assert!(list_from_wt[1].is_current);
+        assert_eq!(list_from_wt[1].branch, "feature-branch");
+
+        // Cleanup
+        let _ = run(&temp_dir, &["worktree", "remove", wt_path.to_str().unwrap()]);
+        let _ = std::fs::remove_dir_all(&temp_dir);
+        let _ = std::fs::remove_dir_all(&wt_path);
+    }
+}
+

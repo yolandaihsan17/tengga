@@ -2,29 +2,95 @@
   import { onDestroy, onMount } from "svelte";
   import FileList from "./lib/FileList.svelte";
   import DiffView from "./lib/DiffView.svelte";
-  import { pickFolder, getDiff, getBranchComparisonInfo, getRepoFiles, getFileContent, saveFileContent, acceptHunk, rejectHunk, getCurrentBranch, listBranches, switchBranch, pullBranch, onChangesDetected, setWindowBlurIntensity } from "./lib/api.js";
+  import SettingsModal from "./lib/SettingsModal.svelte";
+  import WorktreeTabs from "./lib/WorktreeTabs.svelte";
+  import {
+    pickFolder,
+    getDiff,
+    getBranchComparisonInfo,
+    getRepoFiles,
+    getFileContent,
+    saveFileContent,
+    acceptHunk,
+    rejectHunk,
+    getCurrentBranch,
+    listBranches,
+    switchBranch,
+    pullBranch,
+    getWorktrees,
+    startWatcher,
+    onChangesDetected,
+    onWorktreesChanged,
+    setWindowBlurIntensity,
+  } from "./lib/api.js";
 
-  let currentTheme = typeof window !== "undefined" ? localStorage.getItem("tengga_theme") || "glass" : "glass";
+  const DEFAULT_SETTINGS = {
+    autoDetectWorktrees: true,
+    autoOpenNewWorktreeTab: true,
+    autoSwitchToNewTab: true,
+    hideTabBarWhenSingle: true,
+    autoRefreshOnFocus: true,
+    warnUnsavedOnSwitch: true,
+    theme: "glass",
+    glassBlur: 0.30,
+  };
 
-  function setTheme(t) {
+  let settings = { ...DEFAULT_SETTINGS };
+  let isSettingsOpen = false;
+  let currentTheme = "glass";
+
+  function loadSettings() {
+    try {
+      const stored = localStorage.getItem("tengga_settings");
+      if (stored) {
+        settings = { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
+      } else {
+        const legacyTheme = localStorage.getItem("tengga_theme");
+        if (legacyTheme) {
+          settings.theme = legacyTheme;
+        }
+      }
+    } catch (e) {}
+    currentTheme = settings.theme || "glass";
+  }
+
+  function handleSaveSettings(newSettings) {
+    settings = newSettings;
+    currentTheme = settings.theme;
+    try {
+      localStorage.setItem("tengga_settings", JSON.stringify(settings));
+      localStorage.setItem("tengga_theme", settings.theme);
+    } catch (e) {}
+    applyTheme(settings.theme, settings.glassBlur);
+  }
+
+  function applyTheme(t, blur = null) {
     currentTheme = t;
     if (typeof document !== "undefined") {
       document.documentElement.setAttribute("data-theme", t);
-      try {
-        localStorage.setItem("tengga_theme", t);
-      } catch (e) {}
     }
+    const blurVal = blur !== null ? blur : (settings.glassBlur ?? 0.30);
     if (t === "glass") {
-      setWindowBlurIntensity(0.30);
+      setWindowBlurIntensity(blurVal);
     } else {
       setWindowBlurIntensity(0.0);
     }
   }
 
-  onMount(() => {
-    const saved = localStorage.getItem("tengga_theme") || "glass";
-    setTheme(saved);
-  });
+  // Worktree state
+  let worktrees = [];
+  let closedWorktreePaths = new Set();
+  let unlistenWorktrees = null;
+  let unsavedBuffers = new Map(); // filePath -> string
+  $: dirtyFiles = new Set(unsavedBuffers.keys());
+
+  $: visibleWorktrees = worktrees.filter((w) => !closedWorktreePaths.has(w.path));
+  $: shouldShowTabBar =
+    repoPath &&
+    settings.autoDetectWorktrees &&
+    visibleWorktrees.length > 0 &&
+    (!settings.hideTabBarWhenSingle || visibleWorktrees.length > 1);
+  $: dirtyWorktreePaths = unsavedBuffers.size > 0 && repoPath ? new Set([repoPath]) : new Set();
 
   let repoPath = null;
   let currentBranch = null;
@@ -249,6 +315,85 @@
     }
   }
 
+  async function loadWorktrees(targetPath, silent = false) {
+    if (!targetPath || !settings.autoDetectWorktrees) {
+      worktrees = [];
+      return;
+    }
+    try {
+      const list = await getWorktrees(targetPath);
+      const prevPaths = new Set(worktrees.map((w) => w.path));
+
+      // Check if newly created worktree appeared
+      if (!silent && prevPaths.size > 0 && settings.autoOpenNewWorktreeTab) {
+        const newlyAdded = list.find((w) => !prevPaths.has(w.path));
+        if (newlyAdded) {
+          closedWorktreePaths.delete(newlyAdded.path);
+          closedWorktreePaths = new Set(closedWorktreePaths);
+          setStatus(`New worktree detected: ${newlyAdded.name} (${newlyAdded.branch})`);
+          if (settings.autoSwitchToNewTab) {
+            worktrees = list;
+            await selectWorktree(newlyAdded.path);
+            return;
+          }
+        }
+      }
+
+      worktrees = list;
+    } catch (e) {
+      console.warn("Failed to load worktrees:", e);
+    }
+  }
+
+  async function selectWorktree(targetPath) {
+    if (!targetPath || targetPath === repoPath) return;
+
+    if (settings.warnUnsavedOnSwitch && unsavedBuffers.size > 0) {
+      const proceed = confirm(
+        `You have unsaved changes in ${unsavedBuffers.size} file(s). Switching worktrees might lose them. Discard unsaved changes and switch?`
+      );
+      if (!proceed) return;
+      unsavedBuffers.clear();
+      unsavedBuffers = new Map();
+    }
+
+    error = null;
+    repoPath = targetPath;
+    selectedFile = null;
+    baseBranch = null;
+    comparisonInfo = null;
+
+    try {
+      await startWatcher(targetPath);
+      await Promise.all([
+        refresh(),
+        loadWorktrees(targetPath, true)
+      ]);
+    } catch (e) {
+      error = "Failed to switch worktree: " + String(e);
+    }
+  }
+
+  function closeWorktreeTab(path) {
+    closedWorktreePaths.add(path);
+    closedWorktreePaths = new Set(closedWorktreePaths);
+    if (path === repoPath) {
+      const remaining = worktrees.filter((w) => !closedWorktreePaths.has(w.path));
+      if (remaining.length > 0) {
+        selectWorktree(remaining[0].path);
+      }
+    }
+  }
+
+  function handleWindowFocus() {
+    if (settings.autoRefreshOnFocus && repoPath) {
+      refresh();
+      if (settings.autoDetectWorktrees) {
+        loadWorktrees(repoPath, false);
+      }
+    }
+  }
+
   async function openFolder() {
     error = null;
     try {
@@ -258,9 +403,12 @@
       selectedFile = null;
       baseBranch = null;
       comparisonInfo = null;
-      await refresh();
-      if (unlisten) unlisten();
-      unlisten = await onChangesDetected(refresh);
+      closedWorktreePaths.clear();
+      closedWorktreePaths = new Set();
+      await Promise.all([
+        refresh(),
+        loadWorktrees(path, true)
+      ]);
     } catch (e) {
       error = String(e);
     }
@@ -283,9 +431,6 @@
       error = String(e);
     }
   }
-
-  let unsavedBuffers = new Map(); // filePath -> string
-  $: dirtyFiles = new Set(unsavedBuffers.keys());
 
   function handleBufferChange(filePath, newContent, isDirty) {
     if (isDirty) {
@@ -329,8 +474,26 @@
   }
 
   function handleGlobalKeydown(e) {
-    const isSaveKey = e.code === "KeyS" || e.key.toLowerCase() === "s" || e.key === "ß";
     const isModifier = e.metaKey || e.ctrlKey;
+
+    // Toggle Settings: Cmd + ,
+    if (isModifier && (e.key === "," || e.code === "Comma")) {
+      e.preventDefault();
+      isSettingsOpen = !isSettingsOpen;
+      return;
+    }
+
+    // Switch Worktree Tabs: Cmd + 1..9
+    if (isModifier && !e.altKey && !e.shiftKey && e.key >= "1" && e.key <= "9") {
+      const idx = parseInt(e.key, 10) - 1;
+      if (visibleWorktrees && visibleWorktrees[idx]) {
+        e.preventDefault();
+        selectWorktree(visibleWorktrees[idx].path);
+        return;
+      }
+    }
+
+    const isSaveKey = e.code === "KeyS" || e.key.toLowerCase() === "s" || e.key === "ß";
 
     if (isModifier && e.altKey && isSaveKey) {
       e.preventDefault();
@@ -347,8 +510,31 @@
     }
   }
 
+  onMount(async () => {
+    loadSettings();
+    applyTheme(settings.theme, settings.glassBlur);
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("focus", handleWindowFocus);
+    }
+
+    unlisten = await onChangesDetected(() => {
+      refresh();
+    });
+
+    unlistenWorktrees = await onWorktreesChanged(() => {
+      if (repoPath && settings.autoDetectWorktrees) {
+        loadWorktrees(repoPath, false);
+      }
+    });
+  });
+
   onDestroy(() => {
     if (unlisten) unlisten();
+    if (unlistenWorktrees) unlistenWorktrees();
+    if (typeof window !== "undefined") {
+      window.removeEventListener("focus", handleWindowFocus);
+    }
   });
 </script>
 
@@ -599,14 +785,35 @@
       {/if}
     </div>
 
-    <!-- Folder Switcher & Theme Selector -->
-    <!-- Folder Switcher -->
+    <!-- Folder Switcher & Settings -->
     <div class="topbar-actions">
       <button class="action-btn" on:click={openFolder}>
         {repoPath ? "Switch Folder" : "Open Folder"}
       </button>
+
+      <button
+        class="action-icon-btn settings-btn"
+        on:click={() => (isSettingsOpen = true)}
+        title="Settings (⌘,)"
+      >
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
+          <path d="M8 4.75a3.25 3.25 0 1 0 0 6.5 3.25 3.25 0 0 0 0-6.5zM6.25 8a1.75 1.75 0 1 1 3.5 0 1.75 1.75 0 0 1-3.5 0z"/>
+          <path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.901-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319z"/>
+        </svg>
+      </button>
     </div>
   </header>
+
+  <!-- Worktree Tab Bar -->
+  {#if shouldShowTabBar}
+    <WorktreeTabs
+      worktrees={visibleWorktrees}
+      activePath={repoPath}
+      dirtyWorktrees={dirtyWorktreePaths}
+      onSelect={selectWorktree}
+      onClose={closeWorktreeTab}
+    />
+  {/if}
 
   <!-- Error & Status Notification Banners -->
   {#if error}
@@ -635,7 +842,7 @@
         {baseBranch}
         {comparisonInfo}
         {currentTheme}
-        onThemeChange={setTheme}
+        onThemeChange={(t) => handleSaveSettings({ ...settings, theme: t })}
         onSelect={(p) => (selectedFile = p)}
       />
     </aside>
@@ -655,6 +862,15 @@
       />
     </section>
   </div>
+
+  <!-- Settings Modal Dialog -->
+  {#if isSettingsOpen}
+    <SettingsModal
+      {settings}
+      onSave={handleSaveSettings}
+      onClose={() => (isSettingsOpen = false)}
+    />
+  {/if}
 </main>
 
 <style>
@@ -1153,10 +1369,6 @@
     color: var(--text-primary);
   }
 
-  .compare-item-sub {
-    font-size: 11px;
-    color: var(--text-muted);
-  }
 
   .compare-section-divider {
     display: flex;
@@ -1210,6 +1422,26 @@
 
   .action-btn:active {
     transform: translateY(0);
+  }
+
+  .settings-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: var(--bg-subtle);
+    border: none;
+    border-radius: 50%;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .settings-btn:hover {
+    background: var(--bg-hover);
+    color: var(--accent-emerald);
+    transform: rotate(45deg);
   }
 
   .banner {

@@ -55,8 +55,20 @@ export async function pullBranch(repoPath, branch) {
   return invoke("pull_branch", { repoPath, branch });
 }
 
+export async function getWorktrees(repoPath) {
+  return invoke("get_worktrees", { repoPath });
+}
+
+export async function startWatcher(path) {
+  return invoke("start_watcher", { path });
+}
+
 export function onChangesDetected(callback) {
   return listen("changes-detected", callback);
+}
+
+export function onWorktreesChanged(callback) {
+  return listen("worktrees-changed", callback);
 }
 
 export async function setWindowBlurIntensity(intensity) {
