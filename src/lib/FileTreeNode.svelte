@@ -23,6 +23,18 @@
           <polyline points="6 4 10 8 6 12"></polyline>
         </svg>
       </span>
+      <span class="folder-icon">
+        {#if expanded}
+          <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor">
+            <path d="M.54 3.87.5 3a2 2 0 0 1 2-2h3.672a2 2 0 0 1 1.414.586l.828.828A2 2 0 0 0 9.828 3h3.982a2 2 0 0 1 1.992 2.181L15.5 8H3.04a2 2 0 0 0-1.92 1.455L.23 12.3A2 2 0 0 1 0 11.5v-7a2 2 0 0 1 .54-.63z"/>
+            <path d="M3.23 9.4A1 1 0 0 1 4.19 9h11.43a.5.5 0 0 1 .48.64l-1.2 4.2a1 1 0 0 1-.96.76H2.38a.5.5 0 0 1-.48-.64l1.33-4.56z"/>
+          </svg>
+        {:else}
+          <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor">
+            <path d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2C6.07 1.26 5.55 1 5 1H1.75z"/>
+          </svg>
+        {/if}
+      </span>
       <span class="folder-title" class:has-changes={node.hasChanges}>{node.name}</span>
       {#if node.hasChanges}
         <span class="change-circle folder-dot" title="Contains changes">●</span>
@@ -55,6 +67,11 @@
     on:click={() => onSelect(node.path)}
     title={node.path}
   >
+    <span class="file-icon">
+      <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor">
+        <path d="M3.75 1.5a1.75 1.75 0 0 0-1.75 1.75v9.5c0 .966.784 1.75 1.75 1.75h8.5A1.75 1.75 0 0 0 14 12.75v-6.5a.75.75 0 0 0-.22-.53l-4.5-4.5A.75.75 0 0 0 8.75 1H3.75zM8.5 2.5v3.25c0 .414.336.75.75.75H12.5v6.25a.25.25 0 0 1-.25.25H3.75a.25.25 0 0 1-.25-.25v-9.5a.25.25 0 0 1 .25-.25h4.75z"/>
+      </svg>
+    </span>
     <span class="file-label" class:is-modified={node.hasChanges}>{node.name}</span>
     {#if node.hasChanges}
       <span class="change-circle" class:dirty={node.isDirty} title={node.isDirty ? "Unsaved edits" : "Modified in git"}>●</span>
@@ -93,12 +110,15 @@
   }
 
   .folder-row {
-    color: var(--text-primary);
+    color: var(--folder-text, var(--text-primary));
   }
 
   .folder-row:hover {
     background: var(--bg-hover);
-    color: var(--text-primary);
+  }
+
+  .folder-row:hover .folder-title {
+    color: var(--folder-hover, var(--text-primary));
   }
 
   .chevron {
@@ -118,6 +138,18 @@
     transform: rotate(90deg);
   }
 
+  .folder-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    color: var(--folder-icon, #f59e0b);
+    flex-shrink: 0;
+    margin-right: 6px;
+    transition: transform 0.12s ease;
+  }
+
   .folder-title {
     flex: 1;
     overflow: hidden;
@@ -126,13 +158,13 @@
     font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
     font-size: 11.5px;
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--folder-text, var(--text-primary));
     line-height: 1.3;
+    transition: color 0.12s ease;
   }
 
   .folder-title.has-changes {
     font-weight: 700;
-    color: var(--text-primary);
   }
 
   .file-row {
@@ -146,6 +178,30 @@
   .file-row:hover {
     background: var(--bg-hover);
     color: var(--text-primary);
+  }
+
+  .file-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    margin-right: 6px;
+    opacity: 0.75;
+    transition: color 0.12s ease, opacity 0.12s ease;
+  }
+
+  .file-row:hover .file-icon {
+    color: var(--text-secondary);
+    opacity: 1;
+  }
+
+  .file-row.modified .file-icon,
+  .file-row.is-dirty .file-icon {
+    color: var(--accent-emerald);
+    opacity: 1;
   }
 
   .file-row.modified,
