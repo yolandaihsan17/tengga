@@ -206,6 +206,9 @@
       if (selectedFile) {
         loadFileContent(selectedFile);
       }
+      if (repoPath && settings.autoDetectWorktrees && worktrees.length === 0) {
+        loadWorktrees(repoPath, true);
+      }
     } catch (e) {
       error = String(e);
     } finally {

@@ -326,6 +326,7 @@ mod tests {
         assert_eq!(worktrees[0].branch, "main");
     }
 
+
     #[test]
     fn test_git_common_dir() {
         let repo_dir = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
