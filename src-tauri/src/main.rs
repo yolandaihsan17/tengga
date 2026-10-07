@@ -217,6 +217,25 @@ fn set_macos_dock_icon(png_bytes: &[u8]) {
                 msg_send1(pinfo, sel_set_process_name, name_str);
             }
         }
+
+        let nsworkspace_class = objc_getClass(b"NSWorkspace\0".as_ptr() as _);
+        let sel_shared_ws = sel_registerName(b"sharedWorkspace\0".as_ptr() as _);
+        let sel_set_icon_for_file = sel_registerName(b"setIcon:forFile:options:\0".as_ptr() as _);
+        let ws = msg_send0(nsworkspace_class, sel_shared_ws);
+        if !ws.is_null() {
+            if let Ok(exe_path) = std::env::current_exe() {
+                if let Some(path_str) = exe_path.to_str() {
+                    let mut c_path = path_str.as_bytes().to_vec();
+                    c_path.push(0);
+                    let path_obj = msg_send1(nsstring_class, sel_string_with_utf8, c_path.as_ptr() as _);
+                    if !path_obj.is_null() {
+                        type MsgSendSetIcon = unsafe extern "C" fn(*mut std::ffi::c_void, *mut std::ffi::c_void, *mut std::ffi::c_void, *mut std::ffi::c_void, usize) -> bool;
+                        let msg_send_set_icon: MsgSendSetIcon = std::mem::transmute(objc_msgSend as *const ());
+                        msg_send_set_icon(ws, sel_set_icon_for_file, img, path_obj, 0);
+                    }
+                }
+            }
+        }
     }
 }
 
