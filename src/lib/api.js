@@ -55,6 +55,34 @@ export async function pullBranch(repoPath, branch) {
   return invoke("pull_branch", { repoPath, branch });
 }
 
+export async function pushBranch(repoPath, branch) {
+  return invoke("push_branch", { repoPath, branch });
+}
+
+export async function stageFile(repoPath, filePath) {
+  return invoke("stage_file", { repoPath, filePath });
+}
+
+export async function unstageFile(repoPath, filePath) {
+  return invoke("unstage_file", { repoPath, filePath });
+}
+
+export async function discardFile(repoPath, filePath) {
+  return invoke("discard_file", { repoPath, filePath });
+}
+
+export async function stageAll(repoPath) {
+  return invoke("stage_all", { repoPath });
+}
+
+export async function unstageAll(repoPath) {
+  return invoke("unstage_all", { repoPath });
+}
+
+export async function discardAll(repoPath) {
+  return invoke("discard_all", { repoPath });
+}
+
 export async function getWorktrees(repoPath) {
   return invoke("get_worktrees", { repoPath });
 }

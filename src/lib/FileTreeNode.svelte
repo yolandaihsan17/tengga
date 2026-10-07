@@ -6,6 +6,10 @@
   export let searchQuery = "";
   export let toggleFolder;
   export let onSelect;
+  export let stageMode = null; // "staged" | "unstaged" | null
+  export let onStage = () => {};
+  export let onUnstage = () => {};
+  export let onDiscard = () => {};
 
   $: expanded = Boolean((searchQuery && searchQuery.trim()) || expandedFolders[node.path]);
 </script>
@@ -52,6 +56,10 @@
             {searchQuery}
             {toggleFolder}
             {onSelect}
+            {stageMode}
+            {onStage}
+            {onUnstage}
+            {onDiscard}
           />
         {/each}
       </div>
@@ -73,8 +81,45 @@
       </svg>
     </span>
     <span class="file-label" class:is-modified={node.hasChanges}>{node.name}</span>
-    {#if node.hasChanges}
+    {#if node.isUntracked}
+      <span class="status-badge untracked" title="Untracked file">U</span>
+    {:else if node.hasChanges}
       <span class="change-circle" class:dirty={node.isDirty} title={node.isDirty ? "Unsaved edits" : "Modified in git"}>●</span>
+    {/if}
+
+    {#if stageMode === "staged"}
+      <div class="file-hover-actions">
+        <button
+          class="file-action-icon-btn unstage-btn"
+          on:click|stopPropagation={() => onUnstage(node.path)}
+          title="Unstage Changes (-)"
+        >
+          <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor">
+            <path d="M3.75 7.25h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1 0-1.5z"/>
+          </svg>
+        </button>
+      </div>
+    {:else if stageMode === "unstaged"}
+      <div class="file-hover-actions">
+        <button
+          class="file-action-icon-btn stage-btn"
+          on:click|stopPropagation={() => onStage(node.path)}
+          title="Stage Changes (+)"
+        >
+          <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor">
+            <path d="M7.25 3.75a.75.75 0 0 1 1.5 0v3.5h3.5a.75.75 0 0 1 0 1.5h-3.5v3.5a.75.75 0 0 1-1.5 0v-3.5h-3.5a.75.75 0 0 1 0-1.5h3.5v-3.5z"/>
+          </svg>
+        </button>
+        <button
+          class="file-action-icon-btn discard-btn"
+          on:click|stopPropagation={() => onDiscard(node.path)}
+          title="Discard Changes"
+        >
+          <svg viewBox="0 0 16 16" width="10" height="10" fill="currentColor">
+            <path fill-rule="evenodd" d="M1.25 8A6.75 6.75 0 1 1 8 14.75a.75.75 0 0 1 0-1.5 5.25 5.25 0 1 0-4.66-2.85l1.44-.36a.75.75 0 1 1 .36 1.45l-3 1a.75.75 0 0 1-.95-.55l-1-3a.75.75 0 1 1 1.42-.48l.45 1.34A6.71 6.71 0 0 1 1.25 8z"/>
+          </svg>
+        </button>
+      </div>
     {/if}
   </button>
 {/if}
@@ -259,5 +304,58 @@
   .change-circle.folder-dot {
     font-size: 6px;
     color: #d97706;
+  }
+
+  .status-badge.untracked {
+    font-size: 10px;
+    font-weight: 700;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--accent-emerald);
+    background: var(--accent-emerald-soft);
+    padding: 0 4px;
+    border-radius: 3px;
+    margin-left: 6px;
+    flex-shrink: 0;
+  }
+
+  .file-hover-actions {
+    display: none;
+    align-items: center;
+    gap: 2px;
+    margin-left: auto;
+    padding-left: 4px;
+    flex-shrink: 0;
+  }
+
+  .file-row:hover .file-hover-actions {
+    display: flex;
+  }
+
+  .file-action-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.1s ease;
+    padding: 0;
+  }
+
+  .file-action-icon-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .file-action-icon-btn.stage-btn:hover {
+    color: var(--accent-emerald);
+  }
+
+  .file-action-icon-btn.discard-btn:hover {
+    color: #ef4444;
   }
 </style>

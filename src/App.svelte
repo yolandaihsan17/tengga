@@ -17,6 +17,13 @@
     listBranches,
     switchBranch,
     pullBranch,
+    pushBranch,
+    stageFile,
+    unstageFile,
+    discardFile,
+    stageAll,
+    unstageAll,
+    discardAll,
     getWorktrees,
     startWatcher,
     onChangesDetected,
@@ -106,6 +113,7 @@
   let comparisonInfo = null; // { ahead: 0, behind: 0 }
 
   let pullingBranch = null; // branch currently being pulled (source or target)
+  let pushingBranch = null; // branch currently being pushed
   let statusMessage = null;
   let statusTimeout = null;
 
@@ -239,6 +247,98 @@
       error = `Pull '${branchName}' failed: ${String(e)}`;
     } finally {
       pullingBranch = null;
+    }
+  }
+
+  async function handlePushBranch(branchName) {
+    if (!repoPath || !branchName || pushingBranch) return;
+    pushingBranch = branchName;
+    error = null;
+    statusMessage = null;
+    try {
+      const result = await pushBranch(repoPath, branchName);
+      setStatus(result || `Successfully pushed '${branchName}' to remote`);
+      await refresh();
+    } catch (e) {
+      error = `Push '${branchName}' failed: ${String(e)}`;
+    } finally {
+      pushingBranch = null;
+    }
+  }
+
+  async function handleStage(filePath) {
+    if (!repoPath || !filePath) return;
+    try {
+      await stageFile(repoPath, filePath);
+      await refresh();
+    } catch (e) {
+      error = `Stage failed: ${String(e)}`;
+    }
+  }
+
+  async function handleUnstage(filePath) {
+    if (!repoPath || !filePath) return;
+    try {
+      await unstageFile(repoPath, filePath);
+      await refresh();
+    } catch (e) {
+      error = `Unstage failed: ${String(e)}`;
+    }
+  }
+
+  async function handleDiscard(filePath) {
+    if (!repoPath || !filePath) return;
+    const proceed = confirm(`Are you sure you want to discard changes in '${filePath}'?\nThis cannot be undone.`);
+    if (!proceed) return;
+
+    try {
+      unsavedBuffers.delete(filePath);
+      unsavedBuffers = new Map(unsavedBuffers);
+      await discardFile(repoPath, filePath);
+      if (selectedFile === filePath) {
+        selectedFile = null;
+        fileContent = null;
+      }
+      await refresh();
+    } catch (e) {
+      error = `Discard failed: ${String(e)}`;
+    }
+  }
+
+  async function handleStageAll() {
+    if (!repoPath) return;
+    try {
+      await stageAll(repoPath);
+      await refresh();
+    } catch (e) {
+      error = `Stage all failed: ${String(e)}`;
+    }
+  }
+
+  async function handleUnstageAll() {
+    if (!repoPath) return;
+    try {
+      await unstageAll(repoPath);
+      await refresh();
+    } catch (e) {
+      error = `Unstage all failed: ${String(e)}`;
+    }
+  }
+
+  async function handleDiscardAll() {
+    if (!repoPath) return;
+    const proceed = confirm(`Are you sure you want to discard ALL unstaged changes?\nThis cannot be undone.`);
+    if (!proceed) return;
+
+    try {
+      unsavedBuffers.clear();
+      unsavedBuffers = new Map();
+      await discardAll(repoPath);
+      selectedFile = null;
+      fileContent = null;
+      await refresh();
+    } catch (e) {
+      error = `Discard all failed: ${String(e)}`;
     }
   }
 
@@ -584,7 +684,7 @@
               <button
                 class="branch-action-btn pull-btn"
                 class:is-loading={pullingBranch === currentBranch}
-                disabled={pullingBranch !== null}
+                disabled={pullingBranch !== null || pushingBranch !== null}
                 on:click|stopPropagation={() => handlePullBranch(currentBranch)}
                 title="Pull latest for '{currentBranch}' from remote (git pull --ff-only)"
               >
@@ -593,6 +693,22 @@
                 {:else}
                   <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor">
                     <path fill-rule="evenodd" d="M8 2a.75.75 0 0 1 .75.75v8.69l3.22-3.22a.75.75 0 1 1 1.06 1.06l-4.5 4.5a.75.75 0 0 1-1.06 0l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.22 3.22V2.75A.75.75 0 0 1 8 2z"/>
+                  </svg>
+                {/if}
+              </button>
+
+              <button
+                class="branch-action-btn push-btn"
+                class:is-loading={pushingBranch === currentBranch}
+                disabled={pushingBranch !== null || pullingBranch !== null}
+                on:click|stopPropagation={() => handlePushBranch(currentBranch)}
+                title="Push '{currentBranch}' to remote (git push)"
+              >
+                {#if pushingBranch === currentBranch}
+                  <span class="pull-spin">↻</span>
+                {:else}
+                  <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor">
+                    <path fill-rule="evenodd" d="M8 14a.75.75 0 0 1-.75-.75V4.56L4.03 7.78a.75.75 0 0 1-1.06-1.06l4.5-4.5a.75.75 0 0 1 1.06 0l4.5 4.5a.75.75 0 0 1-1.06 1.06L8.75 4.56v8.69A.75.75 0 0 1 8 14z"/>
                   </svg>
                 {/if}
               </button>
@@ -847,6 +963,12 @@
         {currentTheme}
         onThemeChange={(t) => handleSaveSettings({ ...settings, theme: t })}
         onSelect={(p) => (selectedFile = p)}
+        onStage={handleStage}
+        onUnstage={handleUnstage}
+        onDiscard={handleDiscard}
+        onStageAll={handleStageAll}
+        onUnstageAll={handleUnstageAll}
+        onDiscardAll={handleDiscardAll}
       />
     </aside>
     <section class="diff-panel">
@@ -862,6 +984,9 @@
         onSave={handleSaveFile}
         onSaveAll={handleSaveAll}
         onBufferChange={handleBufferChange}
+        onStageFile={handleStage}
+        onUnstageFile={handleUnstage}
+        onDiscardFile={handleDiscard}
       />
     </section>
   </div>

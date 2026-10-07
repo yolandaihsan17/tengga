@@ -11,6 +11,15 @@
   export let onSelect;
   export let currentTheme = "light";
   export let onThemeChange = () => {};
+  export let onStage = () => {};
+  export let onUnstage = () => {};
+  export let onDiscard = () => {};
+  export let onStageAll = () => {};
+  export let onUnstageAll = () => {};
+  export let onDiscardAll = () => {};
+
+  let isStagedExpanded = true;
+  let isUnstagedExpanded = true;
 
   let filterScope = "all";    // "all" | "changes"
   let searchQuery = "";
@@ -52,6 +61,8 @@
 
   // Build a lookup map of diff info by file path
   $: diffMap = new Map(files.map((f) => [f.path, f]));
+  $: totalAdditions = files.reduce((acc, f) => acc + (f.additions || 0), 0);
+  $: totalDeletions = files.reduce((acc, f) => acc + (f.deletions || 0), 0);
 
   // Combine repoFiles with any modified files (e.g. untracked or deleted) into a unified set of paths
   $: unifiedPaths = Array.from(new Set([...repoFiles, ...files.map((f) => f.path)])).sort();
@@ -137,10 +148,28 @@
     return true;
   });
 
-  $: treeData = buildTree(filteredPaths, diffMap, dirtyFiles);
+  // Staged / Unstaged paths separation
+  $: stagedPaths = files.filter((f) => f.has_staged).map((f) => f.path);
+  $: unstagedPaths = files.filter((f) => f.has_unstaged || f.is_untracked).map((f) => f.path);
+  $: allUnstagedPaths = Array.from(new Set([...unstagedPaths, ...(dirtyFiles ? Array.from(dirtyFiles) : [])])).sort();
 
-  $: totalAdditions = files.reduce((acc, f) => acc + (f.additions || 0), 0);
-  $: totalDeletions = files.reduce((acc, f) => acc + (f.deletions || 0), 0);
+  $: stagedFilteredPaths = stagedPaths.filter((path) => {
+    if (searchQuery && !path.toLowerCase().includes(searchQuery.toLowerCase().trim())) {
+      return false;
+    }
+    return true;
+  });
+
+  $: unstagedFilteredPaths = allUnstagedPaths.filter((path) => {
+    if (searchQuery && !path.toLowerCase().includes(searchQuery.toLowerCase().trim())) {
+      return false;
+    }
+    return true;
+  });
+
+  $: stagedTreeData = buildTree(stagedFilteredPaths, diffMap, dirtyFiles);
+  $: unstagedTreeData = buildTree(unstagedFilteredPaths, diffMap, dirtyFiles);
+  $: treeData = buildTree(filteredPaths, diffMap, dirtyFiles);
 
   function buildTree(paths, diffs, dirtySet) {
     const root = { name: "", type: "folder", children: {}, path: "", additions: 0, deletions: 0, hasChanges: false };
@@ -165,6 +194,7 @@
             path,
             hasChanges,
             isDirty,
+            isUntracked: diffInfo ? Boolean(diffInfo.is_untracked) : false,
             additions: diffInfo ? diffInfo.additions : 0,
             deletions: diffInfo ? diffInfo.deletions : 0,
             is_binary: diffInfo ? diffInfo.is_binary : false,
@@ -298,19 +328,125 @@
 
   <!-- Main Scrollable Directory Structure -->
   <div class="file-tree-container">
-    <div class="tree-root">
-      {#each treeData as node (node.path)}
-        <FileTreeNode
-          {node}
-          depth={0}
-          {selectedFile}
-          {expandedFolders}
-          {searchQuery}
-          {toggleFolder}
-          {onSelect}
-        />
-      {/each}
-    </div>
+    {#if filterScope === "changes" && !baseBranch}
+      <!-- Staged Changes Section -->
+      {#if stagedFilteredPaths.length > 0}
+        <div class="git-staging-section">
+          <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+          <div
+            class="git-section-header"
+            on:click={() => (isStagedExpanded = !isStagedExpanded)}
+          >
+            <div class="section-header-left">
+              <span class="section-chevron" class:expanded={isStagedExpanded}>▸</span>
+              <span class="section-title">STAGED CHANGES</span>
+              <span class="section-badge">{stagedFilteredPaths.length}</span>
+            </div>
+            <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+            <div class="section-header-actions" on:click|stopPropagation>
+              <button
+                class="section-action-btn"
+                on:click={onUnstageAll}
+                title="Unstage All Changes (-)"
+              >
+                <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor">
+                  <path d="M3.75 7.25h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1 0-1.5z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          {#if isStagedExpanded}
+            <div class="tree-root">
+              {#each stagedTreeData as node (node.path)}
+                <FileTreeNode
+                  {node}
+                  depth={0}
+                  {selectedFile}
+                  {expandedFolders}
+                  {searchQuery}
+                  {toggleFolder}
+                  {onSelect}
+                  stageMode="staged"
+                  {onUnstage}
+                />
+              {/each}
+            </div>
+          {/if}
+        </div>
+      {/if}
+
+      <!-- Unstaged Changes Section -->
+      <div class="git-staging-section">
+        <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+        <div
+          class="git-section-header"
+          on:click={() => (isUnstagedExpanded = !isUnstagedExpanded)}
+        >
+          <div class="section-header-left">
+            <span class="section-chevron" class:expanded={isUnstagedExpanded}>▸</span>
+            <span class="section-title">CHANGES</span>
+            <span class="section-badge">{unstagedFilteredPaths.length}</span>
+          </div>
+          <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+          <div class="section-header-actions" on:click|stopPropagation>
+            {#if unstagedFilteredPaths.length > 0}
+              <button
+                class="section-action-btn stage-all-btn"
+                on:click={onStageAll}
+                title="Stage All Changes (+)"
+              >
+                <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor">
+                  <path d="M7.25 3.75a.75.75 0 0 1 1.5 0v3.5h3.5a.75.75 0 0 1 0 1.5h-3.5v3.5a.75.75 0 0 1-1.5 0v-3.5h-3.5a.75.75 0 0 1 0-1.5h3.5v-3.5z"/>
+                </svg>
+              </button>
+              <button
+                class="section-action-btn discard-all-btn"
+                on:click={onDiscardAll}
+                title="Discard All Changes"
+              >
+                <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor">
+                  <path fill-rule="evenodd" d="M1.25 8A6.75 6.75 0 1 1 8 14.75a.75.75 0 0 1 0-1.5 5.25 5.25 0 1 0-4.66-2.85l1.44-.36a.75.75 0 1 1 .36 1.45l-3 1a.75.75 0 0 1-.95-.55l-1-3a.75.75 0 1 1 1.42-.48l.45 1.34A6.71 6.71 0 0 1 1.25 8z"/>
+                </svg>
+              </button>
+            {/if}
+          </div>
+        </div>
+
+        {#if isUnstagedExpanded}
+          <div class="tree-root">
+            {#each unstagedTreeData as node (node.path)}
+              <FileTreeNode
+                {node}
+                depth={0}
+                {selectedFile}
+                {expandedFolders}
+                {searchQuery}
+                {toggleFolder}
+                {onSelect}
+                stageMode="unstaged"
+                {onStage}
+                {onDiscard}
+              />
+            {/each}
+          </div>
+        {/if}
+      </div>
+    {:else}
+      <div class="tree-root">
+        {#each treeData as node (node.path)}
+          <FileTreeNode
+            {node}
+            depth={0}
+            {selectedFile}
+            {expandedFolders}
+            {searchQuery}
+            {toggleFolder}
+            {onSelect}
+          />
+        {/each}
+      </div>
+    {/if}
 
     {#if filteredPaths.length === 0}
       {#if filterScope === "changes" && !searchQuery}
@@ -538,6 +674,103 @@
   .tree-root {
     display: flex;
     flex-direction: column;
+  }
+
+  .git-staging-section {
+    margin-bottom: 8px;
+  }
+
+  .git-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.12s ease;
+  }
+
+  .git-section-header:hover {
+    background: var(--bg-hover);
+  }
+
+  .section-header-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+  }
+
+  .section-chevron {
+    font-size: 10px;
+    color: var(--text-muted);
+    transition: transform 0.15s ease;
+    display: inline-block;
+    line-height: 1;
+  }
+
+  .section-chevron.expanded {
+    transform: rotate(90deg);
+  }
+
+  .section-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+  }
+
+  .section-badge {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: var(--bg-subtle);
+    border-radius: 10px;
+    padding: 1px 6px;
+    min-width: 14px;
+    text-align: center;
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  }
+
+  .section-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+  }
+
+  .git-section-header:hover .section-header-actions {
+    opacity: 1;
+  }
+
+  .section-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.12s ease;
+    padding: 0;
+  }
+
+  .section-action-btn:hover {
+    background: var(--bg-card);
+    color: var(--text-primary);
+  }
+
+  .section-action-btn.stage-all-btn:hover {
+    color: var(--accent-emerald);
+  }
+
+  .section-action-btn.discard-all-btn:hover {
+    color: var(--diff-del-sign);
   }
 
   .empty-state {

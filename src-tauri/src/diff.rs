@@ -22,6 +22,9 @@ pub struct FileDiff {
     pub deletions: u32,
     pub hunks: Vec<Hunk>,
     pub is_binary: bool,
+    pub has_staged: bool,
+    pub has_unstaged: bool,
+    pub is_untracked: bool,
 }
 
 // server-side only: enough info to rebuild a patch for a single hunk
@@ -51,6 +54,9 @@ pub fn parse_diff(raw: &str, source: &str) -> (Vec<FileDiff>, Vec<(String, HunkP
                 deletions: 0,
                 hunks: Vec::new(),
                 is_binary: true,
+                has_staged: source == "staged",
+                has_unstaged: source == "unstaged",
+                is_untracked: false,
             });
             continue;
         }
@@ -89,6 +95,9 @@ pub fn parse_diff(raw: &str, source: &str) -> (Vec<FileDiff>, Vec<(String, HunkP
                 deletions,
                 hunks,
                 is_binary: false,
+                has_staged: source == "staged",
+                has_unstaged: source == "unstaged",
+                is_untracked: false,
             });
         }
     }

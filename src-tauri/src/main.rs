@@ -74,21 +74,76 @@ fn get_diff(
             let (staged_files, staged_patches) = parse_diff(&staged_raw, "staged");
 
             let mut files: HashMap<String, FileDiff> = HashMap::new();
-            for f in unstaged_files.into_iter().chain(staged_files.into_iter()) {
+
+            // 1. First insert staged files
+            for mut f in staged_files {
+                f.has_staged = true;
+                f.has_unstaged = false;
+                f.is_untracked = false;
+                files.insert(f.path.clone(), f);
+            }
+
+            // 2. Merge unstaged files
+            for f in unstaged_files {
                 files
                     .entry(f.path.clone())
                     .and_modify(|existing| {
                         existing.additions += f.additions;
                         existing.deletions += f.deletions;
                         existing.hunks.extend(f.hunks.clone());
+                        existing.has_unstaged = true;
                         if f.is_binary {
                             existing.is_binary = true;
                         }
                     })
-                    .or_insert(f);
+                    .or_insert_with(|| {
+                        let mut item = f;
+                        item.has_staged = false;
+                        item.has_unstaged = true;
+                        item.is_untracked = false;
+                        item
+                    });
             }
-            let patches: Vec<(String, HunkPatch)> =
-                unstaged_patches.into_iter().chain(staged_patches.into_iter()).collect();
+
+            // 3. Detect untracked files
+            let mut untracked_patches = Vec::new();
+            if let Ok(untracked_list) = git::list_untracked_files(&repo) {
+                for u in untracked_list {
+                    if files.contains_key(&u) {
+                        continue;
+                    }
+                    if let Ok(raw_u) = git::diff_untracked(&repo, &u) {
+                        let (u_files, u_p) = parse_diff(&raw_u, "unstaged");
+                        if let Some(mut first) = u_files.into_iter().next() {
+                            first.has_staged = false;
+                            first.has_unstaged = true;
+                            first.is_untracked = true;
+                            files.insert(first.path.clone(), first);
+                            untracked_patches.extend(u_p);
+                            continue;
+                        }
+                    }
+                    files.insert(
+                        u.clone(),
+                        FileDiff {
+                            path: u,
+                            additions: 0,
+                            deletions: 0,
+                            hunks: Vec::new(),
+                            is_binary: false,
+                            has_staged: false,
+                            has_unstaged: true,
+                            is_untracked: true,
+                        },
+                    );
+                }
+            }
+
+            let patches: Vec<(String, HunkPatch)> = unstaged_patches
+                .into_iter()
+                .chain(staged_patches.into_iter())
+                .chain(untracked_patches.into_iter())
+                .collect();
             (files.into_values().collect(), patches)
         }
     };
@@ -172,6 +227,41 @@ fn switch_branch(repo_path: String, branch: String) -> Result<(), String> {
 #[tauri::command]
 fn pull_branch(repo_path: String, branch: String) -> Result<String, String> {
     git::pull_branch(&PathBuf::from(repo_path), &branch)
+}
+
+#[tauri::command]
+fn push_branch(repo_path: String, branch: String) -> Result<String, String> {
+    git::push_branch(&PathBuf::from(repo_path), &branch)
+}
+
+#[tauri::command]
+fn stage_file(repo_path: String, file_path: String) -> Result<(), String> {
+    git::stage_file(&PathBuf::from(repo_path), &file_path)
+}
+
+#[tauri::command]
+fn unstage_file(repo_path: String, file_path: String) -> Result<(), String> {
+    git::unstage_file(&PathBuf::from(repo_path), &file_path)
+}
+
+#[tauri::command]
+fn discard_file(repo_path: String, file_path: String) -> Result<(), String> {
+    git::discard_file(&PathBuf::from(repo_path), &file_path)
+}
+
+#[tauri::command]
+fn stage_all(repo_path: String) -> Result<(), String> {
+    git::stage_all(&PathBuf::from(repo_path))
+}
+
+#[tauri::command]
+fn unstage_all(repo_path: String) -> Result<(), String> {
+    git::unstage_all(&PathBuf::from(repo_path))
+}
+
+#[tauri::command]
+fn discard_all(repo_path: String) -> Result<(), String> {
+    git::discard_all(&PathBuf::from(repo_path))
 }
 
 #[cfg(target_os = "macos")]
@@ -358,6 +448,13 @@ fn main() {
             switch_branch,
             get_branch_comparison_info,
             pull_branch,
+            push_branch,
+            stage_file,
+            unstage_file,
+            discard_file,
+            stage_all,
+            unstage_all,
+            discard_all,
             get_worktrees,
             set_window_blur_intensity
         ])

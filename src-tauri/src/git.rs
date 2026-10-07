@@ -300,6 +300,196 @@ pub fn apply_patch(repo: &Path, patch: &str, cached: bool, reverse: bool) -> Res
     }
 }
 
+pub fn list_untracked_files(repo: &Path) -> Result<Vec<String>, String> {
+    let output = run_git(repo, &["ls-files", "--others", "--exclude-standard"])?;
+    Ok(output
+        .lines()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect())
+}
+
+pub fn diff_untracked(repo: &Path, file_path: &str) -> Result<String, String> {
+    let output = Command::new("git")
+        .args(["diff", "--no-index", "--", "/dev/null", file_path])
+        .current_dir(repo)
+        .output()
+        .map_err(|e| e.to_string())?;
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+pub fn stage_file(repo: &Path, file_path: &str) -> Result<(), String> {
+    let output = Command::new("git")
+        .args(["add", "--", file_path])
+        .current_dir(repo)
+        .output()
+        .map_err(|e| e.to_string())?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).to_string())
+    }
+}
+
+pub fn unstage_file(repo: &Path, file_path: &str) -> Result<(), String> {
+    let output = Command::new("git")
+        .args(["restore", "--staged", "--", file_path])
+        .current_dir(repo)
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let fallback = Command::new("git")
+            .args(["reset", "HEAD", "--", file_path])
+            .current_dir(repo)
+            .output()
+            .map_err(|e| e.to_string())?;
+        if fallback.status.success() {
+            Ok(())
+        } else {
+            Err(String::from_utf8_lossy(&fallback.stderr).to_string())
+        }
+    }
+}
+
+pub fn discard_file(repo: &Path, file_path: &str) -> Result<(), String> {
+    let full_path = repo.join(file_path);
+    let is_tracked = Command::new("git")
+        .args(["ls-files", "--error-unmatch", "--", file_path])
+        .current_dir(repo)
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !is_tracked {
+        if full_path.is_file() {
+            std::fs::remove_file(&full_path).map_err(|e| e.to_string())?;
+        } else if full_path.is_dir() {
+            std::fs::remove_dir_all(&full_path).map_err(|e| e.to_string())?;
+        }
+        return Ok(());
+    }
+
+    let output = Command::new("git")
+        .args(["restore", "--worktree", "--", file_path])
+        .current_dir(repo)
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let fb = Command::new("git")
+            .args(["checkout", "HEAD", "--", file_path])
+            .current_dir(repo)
+            .output()
+            .map_err(|e| e.to_string())?;
+        if fb.status.success() {
+            Ok(())
+        } else {
+            Err(String::from_utf8_lossy(&fb.stderr).to_string())
+        }
+    }
+}
+
+pub fn stage_all(repo: &Path) -> Result<(), String> {
+    let output = Command::new("git")
+        .args(["add", "-A"])
+        .current_dir(repo)
+        .output()
+        .map_err(|e| e.to_string())?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).to_string())
+    }
+}
+
+pub fn unstage_all(repo: &Path) -> Result<(), String> {
+    let output = Command::new("git")
+        .args(["restore", "--staged", "."])
+        .current_dir(repo)
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let fb = Command::new("git")
+            .args(["reset", "HEAD"])
+            .current_dir(repo)
+            .output()
+            .map_err(|e| e.to_string())?;
+        if fb.status.success() {
+            Ok(())
+        } else {
+            Err(String::from_utf8_lossy(&fb.stderr).to_string())
+        }
+    }
+}
+
+pub fn discard_all(repo: &Path) -> Result<(), String> {
+    let _ = Command::new("git")
+        .args(["restore", "--worktree", "."])
+        .current_dir(repo)
+        .output();
+
+    let clean = Command::new("git")
+        .args(["clean", "-fd"])
+        .current_dir(repo)
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    if clean.status.success() {
+        Ok(())
+    } else {
+        Err(String::from_utf8_lossy(&clean.stderr).to_string())
+    }
+}
+
+pub fn push_branch(repo: &Path, branch: &str) -> Result<String, String> {
+    if branch.starts_with('-') || branch.is_empty() {
+        return Err("Invalid branch name".to_string());
+    }
+
+    let output = Command::new("git")
+        .args(["push", "origin", branch])
+        .current_dir(repo)
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        if !stdout.is_empty() {
+            Ok(stdout)
+        } else if !stderr.is_empty() {
+            Ok(stderr)
+        } else {
+            Ok(format!("Pushed '{}' to origin", branch))
+        }
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        if stderr.contains("set-upstream") || stderr.contains("no upstream") {
+            let u_out = Command::new("git")
+                .args(["push", "--set-upstream", "origin", branch])
+                .current_dir(repo)
+                .output()
+                .map_err(|e| e.to_string())?;
+            if u_out.status.success() {
+                return Ok(format!("Pushed and set upstream for '{}'", branch));
+            }
+        }
+        Err(if stderr.is_empty() {
+            String::from_utf8_lossy(&output.stdout).trim().to_string()
+        } else {
+            stderr
+        })
+    }
+}
+
 fn run_git(repo: &Path, args: &[&str]) -> Result<String, String> {
     let output = Command::new("git")
         .args(args)
@@ -382,6 +572,73 @@ mod tests {
         let _ = run(&temp_dir, &["worktree", "remove", wt_path.to_str().unwrap()]);
         let _ = std::fs::remove_dir_all(&temp_dir);
         let _ = std::fs::remove_dir_all(&wt_path);
+    }
+
+    #[test]
+    fn test_staging_and_unstaging_and_discarding() {
+        let temp_dir = std::env::temp_dir().join(format!("tengga_stage_test_{}", uuid::Uuid::new_v4()));
+        let _ = std::fs::create_dir_all(&temp_dir);
+
+        let run = |dir: &Path, args: &[&str]| {
+            Command::new("git")
+                .args(args)
+                .current_dir(dir)
+                .output()
+                .expect("git cmd failed")
+        };
+
+        run(&temp_dir, &["init", "-b", "main"]);
+        run(&temp_dir, &["config", "user.name", "Test User"]);
+        run(&temp_dir, &["config", "user.email", "test@example.com"]);
+        let file_path = temp_dir.join("hello.txt");
+        let _ = std::fs::write(&file_path, "hello world\n");
+        run(&temp_dir, &["add", "hello.txt"]);
+        run(&temp_dir, &["commit", "-m", "initial commit"]);
+
+        // Modify hello.txt and create untracked new.txt
+        let _ = std::fs::write(&file_path, "hello world modified\n");
+        let untracked_path = temp_dir.join("new.txt");
+        let _ = std::fs::write(&untracked_path, "brand new content\n");
+
+        // Check untracked files
+        let untracked = list_untracked_files(&temp_dir).expect("should list untracked files");
+        assert_eq!(untracked, vec!["new.txt"]);
+
+        // Check untracked diff
+        let u_diff = diff_untracked(&temp_dir, "new.txt").expect("should diff untracked file");
+        assert!(u_diff.contains("+brand new content"));
+
+        // Stage hello.txt
+        stage_file(&temp_dir, "hello.txt").expect("should stage file");
+        let staged_diff = diff_staged(&temp_dir).expect("should get staged diff");
+        assert!(staged_diff.contains("hello world modified"));
+
+        // Unstage hello.txt
+        unstage_file(&temp_dir, "hello.txt").expect("should unstage file");
+        let staged_diff_after = diff_staged(&temp_dir).expect("should get staged diff");
+        assert!(!staged_diff_after.contains("hello world modified"));
+
+        // Stage all
+        stage_all(&temp_dir).expect("should stage all");
+        let staged_diff_all = diff_staged(&temp_dir).expect("should get staged diff");
+        assert!(staged_diff_all.contains("hello world modified"));
+        assert!(staged_diff_all.contains("brand new content"));
+
+        // Unstage all
+        unstage_all(&temp_dir).expect("should unstage all");
+        let staged_diff_none = diff_staged(&temp_dir).expect("should get staged diff");
+        assert!(staged_diff_none.is_empty() || !staged_diff_none.contains("hello world modified"));
+
+        // Discard untracked new.txt
+        discard_file(&temp_dir, "new.txt").expect("should discard untracked file");
+        assert!(!untracked_path.exists(), "untracked file should be deleted on discard");
+
+        // Discard tracked hello.txt
+        discard_file(&temp_dir, "hello.txt").expect("should discard tracked file");
+        let content = std::fs::read_to_string(&file_path).unwrap();
+        assert_eq!(content, "hello world\n");
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
     }
 }
 

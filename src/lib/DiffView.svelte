@@ -14,6 +14,9 @@
   export let onSave = null;
   export let onSaveAll = null;
   export let onBufferChange = null;
+  export let onStageFile = null;
+  export let onUnstageFile = null;
+  export let onDiscardFile = null;
 
   let activeView = "diff"; // "diff" | "content"
   let editedContent = "";
@@ -322,6 +325,42 @@
         </div>
 
         <div class="file-header-top-right">
+          {#if !baseBranch}
+            {#if file.has_unstaged || file.is_untracked}
+              <button
+                class="file-action-btn stage"
+                on:click={() => onStageFile && onStageFile(file.path)}
+                title="Stage Changes (+)"
+              >
+                <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor">
+                  <path d="M7.25 3.75a.75.75 0 0 1 1.5 0v3.5h3.5a.75.75 0 0 1 0 1.5h-3.5v3.5a.75.75 0 0 1-1.5 0v-3.5h-3.5a.75.75 0 0 1 0-1.5h3.5v-3.5z"/>
+                </svg>
+                <span>Stage</span>
+              </button>
+              <button
+                class="file-action-btn discard"
+                on:click={() => onDiscardFile && onDiscardFile(file.path)}
+                title="Discard Changes"
+              >
+                <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor">
+                  <path fill-rule="evenodd" d="M1.25 8A6.75 6.75 0 1 1 8 14.75a.75.75 0 0 1 0-1.5 5.25 5.25 0 1 0-4.66-2.85l1.44-.36a.75.75 0 1 1 .36 1.45l-3 1a.75.75 0 0 1-.95-.55l-1-3a.75.75 0 1 1 1.42-.48l.45 1.34A6.71 6.71 0 0 1 1.25 8z"/>
+                </svg>
+                <span>Discard</span>
+              </button>
+            {/if}
+            {#if file.has_staged}
+              <button
+                class="file-action-btn unstage"
+                on:click={() => onUnstageFile && onUnstageFile(file.path)}
+                title="Unstage Changes (-)"
+              >
+                <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor">
+                  <path d="M3.75 7.25h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1 0-1.5z"/>
+                </svg>
+                <span>Unstage</span>
+              </button>
+            {/if}
+          {/if}
           {#if !hasHunks && !file.is_binary && lineCount}
             <span class="line-count-meta">{lineCount} lines</span>
           {/if}
@@ -491,6 +530,41 @@
     align-items: center;
     gap: 8px;
     flex-shrink: 0;
+  }
+
+  .file-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 500;
+    border-radius: 4px;
+    border: none;
+    background: var(--bg-subtle);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.12s ease;
+  }
+
+  .file-action-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .file-action-btn.stage:hover {
+    background: var(--accent-emerald-soft);
+    color: var(--accent-emerald);
+  }
+
+  .file-action-btn.discard:hover {
+    background: rgba(239, 68, 68, 0.12);
+    color: var(--diff-del-sign);
+  }
+
+  .file-action-btn.unstage:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
   }
 
   .crumb-sep {
