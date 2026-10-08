@@ -10,6 +10,7 @@ pub struct WorktreeInfo {
     pub head: String,
     pub is_main: bool,
     pub is_current: bool,
+    pub mtime: u64,
 }
 
 pub fn git_common_dir(repo: &Path) -> Result<PathBuf, String> {
@@ -44,6 +45,11 @@ pub fn list_worktrees(repo: &Path) -> Result<Vec<WorktreeInfo>, String> {
                     .to_string();
                 let canon_wt = std::fs::canonicalize(&path).unwrap_or_else(|_| PathBuf::from(&path));
                 let is_current = canon_wt == canon_current;
+                let mtime = std::fs::metadata(Path::new(&path).join(".git"))
+                    .or_else(|_| std::fs::metadata(&path))
+                    .and_then(|m| m.modified())
+                    .map(|t| t.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs())
+                    .unwrap_or(0);
                 worktrees.push(WorktreeInfo {
                     path,
                     name,
@@ -51,6 +57,7 @@ pub fn list_worktrees(repo: &Path) -> Result<Vec<WorktreeInfo>, String> {
                     head: cur_head.take().unwrap_or_default(),
                     is_main: is_first,
                     is_current,
+                    mtime,
                 });
                 is_first = false;
             }
@@ -80,6 +87,11 @@ pub fn list_worktrees(repo: &Path) -> Result<Vec<WorktreeInfo>, String> {
             .to_string();
         let canon_wt = std::fs::canonicalize(&path).unwrap_or_else(|_| PathBuf::from(&path));
         let is_current = canon_wt == canon_current;
+        let mtime = std::fs::metadata(Path::new(&path).join(".git"))
+            .or_else(|_| std::fs::metadata(&path))
+            .and_then(|m| m.modified())
+            .map(|t| t.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs())
+            .unwrap_or(0);
         worktrees.push(WorktreeInfo {
             path,
             name,
@@ -87,6 +99,7 @@ pub fn list_worktrees(repo: &Path) -> Result<Vec<WorktreeInfo>, String> {
             head: cur_head.take().unwrap_or_default(),
             is_main: is_first,
             is_current,
+            mtime,
         });
     }
 

@@ -483,6 +483,133 @@
     }
   }
 
+  function getWorktreeOrderStorageKey(mainPath) {
+    return "tengga_wt_order_" + (mainPath || "").replace(/[^a-zA-Z0-9_-]/g, "_");
+  }
+
+  function getWorktreeClosedStorageKey(mainPath) {
+    return "tengga_wt_closed_" + (mainPath || "").replace(/[^a-zA-Z0-9_-]/g, "_");
+  }
+
+  function getSavedWorktreeOrder(mainPath) {
+    if (!mainPath) return null;
+    try {
+      const raw = localStorage.getItem(getWorktreeOrderStorageKey(mainPath));
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function saveWorktreeOrder(mainPath, orderedList) {
+    if (!mainPath || !Array.isArray(orderedList)) return;
+    try {
+      const paths = orderedList.map((w) => w.path);
+      localStorage.setItem(getWorktreeOrderStorageKey(mainPath), JSON.stringify(paths));
+    } catch (e) {}
+  }
+
+  function getSavedClosedWorktrees(mainPath) {
+    if (!mainPath) return [];
+    try {
+      const raw = localStorage.getItem(getWorktreeClosedStorageKey(mainPath));
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+    return [];
+  }
+
+  function saveClosedWorktrees(mainPath, closedSet) {
+    if (!mainPath) return;
+    try {
+      const arr = Array.from(closedSet || []);
+      localStorage.setItem(getWorktreeClosedStorageKey(mainPath), JSON.stringify(arr));
+    } catch (e) {}
+  }
+
+  function orderWorktrees(freshList, prevList = []) {
+    if (!freshList || freshList.length === 0) return [];
+
+    // Main repository worktree: Git marks it with is_main (or first entry in porcelain)
+    const mainWt = freshList.find((w) => w.is_main) || freshList[0];
+    const mainPath = mainWt.path;
+    const freshMap = new Map(freshList.map((w) => [w.path, w]));
+
+    // Determine ordering baseline:
+    // If prevList is from the same repo, preserve that current user layout.
+    // Otherwise load the user's saved tab order from localStorage.
+    let baseOrderPaths = [];
+    const prevMain = prevList && (prevList.find((w) => w.is_main) || prevList[0]);
+    if (prevMain && prevMain.path === mainPath && prevList.length > 0) {
+      baseOrderPaths = prevList.map((w) => w.path);
+    } else {
+      const saved = getSavedWorktreeOrder(mainPath);
+      if (saved && saved.length > 0) {
+        baseOrderPaths = saved;
+      }
+    }
+
+    const otherFresh = freshList.filter((w) => w.path !== mainPath);
+
+    if (baseOrderPaths.length === 0) {
+      // First time loading this repo with no previous custom order:
+      // Main worktree at index 0.
+      // Newest worktrees placed right next to main (at index 1), followed by older ones descending by mtime.
+      otherFresh.sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
+      const result = [mainWt, ...otherFresh];
+      saveWorktreeOrder(mainPath, result);
+      return result;
+    }
+
+    // Existing / customized order:
+    // Retain existing tabs in their current order (excluding main).
+    const existingOrderedWts = [];
+    for (const p of baseOrderPaths) {
+      if (p !== mainPath && freshMap.has(p)) {
+        existingOrderedWts.push(freshMap.get(p));
+      }
+    }
+
+    // Detect brand new worktrees that were NOT in baseOrderPaths
+    const baseSet = new Set(baseOrderPaths);
+    const brandNewWts = otherFresh.filter((w) => !baseSet.has(w.path));
+
+    // Sort brand new worktrees newest first by mtime
+    brandNewWts.sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
+
+    // User rule:
+    // Main at index 0.
+    // Newly created worktree placed immediately to the right of main (index 1).
+    // Existing tabs keep their customized order!
+    const result = [mainWt, ...brandNewWts, ...existingOrderedWts];
+    saveWorktreeOrder(mainPath, result);
+    return result;
+  }
+
+  function handleReorderWorktrees(reorderedVisible) {
+    if (!reorderedVisible || reorderedVisible.length === 0) return;
+    const mainWt = worktrees.find((w) => w.is_main) || worktrees[0];
+    const mainPath = mainWt ? mainWt.path : (repoPath || "");
+
+    // Main worktree must always remain at index 0
+    let normalized = [...reorderedVisible];
+    if (mainWt) {
+      normalized = [mainWt, ...normalized.filter((w) => w.path !== mainWt.path)];
+    }
+
+    // Retain any closed/hidden worktrees
+    const visiblePaths = new Set(normalized.map((w) => w.path));
+    const hiddenWts = worktrees.filter((w) => !visiblePaths.has(w.path));
+    const fullList = [...normalized, ...hiddenWts];
+
+    worktrees = fullList;
+    saveWorktreeOrder(mainPath, fullList);
+  }
+
   async function loadWorktrees(targetPath, silent = false) {
     if (!targetPath || !settings.autoDetectWorktrees) {
       worktrees = [];
@@ -490,7 +617,23 @@
     }
     try {
       const list = await getWorktrees(targetPath);
+      if (!list || list.length === 0) {
+        worktrees = [];
+        return;
+      }
+
+      const mainWt = list.find((w) => w.is_main) || list[0];
+      const mainPath = mainWt.path;
+
+      // Restore saved closed paths if this repo is freshly loaded
+      const prevMain = worktrees.find((w) => w.is_main) || worktrees[0];
+      if (!prevMain || prevMain.path !== mainPath) {
+        const savedClosed = getSavedClosedWorktrees(mainPath);
+        closedWorktreePaths = new Set(savedClosed);
+      }
+
       const prevPaths = new Set(worktrees.map((w) => w.path));
+      const ordered = orderWorktrees(list, worktrees);
 
       // Check if newly created worktree appeared
       if (!silent && prevPaths.size > 0 && settings.autoOpenNewWorktreeTab) {
@@ -498,16 +641,18 @@
         if (newlyAdded) {
           closedWorktreePaths.delete(newlyAdded.path);
           closedWorktreePaths = new Set(closedWorktreePaths);
+          saveClosedWorktrees(mainPath, closedWorktreePaths);
           setStatus(`New worktree detected: ${newlyAdded.name} (${newlyAdded.branch})`);
+          worktrees = ordered;
           if (settings.autoSwitchToNewTab) {
-            worktrees = list;
             await selectWorktree(newlyAdded.path);
             return;
           }
+          return;
         }
       }
 
-      worktrees = list;
+      worktrees = ordered;
     } catch (e) {
       console.warn("Failed to load worktrees:", e);
     }
@@ -523,6 +668,16 @@
       if (!proceed) return;
       unsavedBuffers.clear();
       unsavedBuffers = new Map();
+    }
+
+    // If target was previously closed, reopen its tab
+    if (closedWorktreePaths.has(targetPath)) {
+      closedWorktreePaths.delete(targetPath);
+      closedWorktreePaths = new Set(closedWorktreePaths);
+      const mainWt = worktrees.find((w) => w.is_main) || worktrees[0];
+      if (mainWt) {
+        saveClosedWorktrees(mainWt.path, closedWorktreePaths);
+      }
     }
 
     error = null;
@@ -544,8 +699,15 @@
 
   function closeWorktreeTab(path) {
     if (isGitOperating) return;
+    const mainWt = worktrees.find((w) => w.is_main) || worktrees[0];
+    if (mainWt && mainWt.path === path) return; // Cannot close main worktree
+
     closedWorktreePaths.add(path);
     closedWorktreePaths = new Set(closedWorktreePaths);
+    if (mainWt) {
+      saveClosedWorktrees(mainWt.path, closedWorktreePaths);
+    }
+
     if (path === repoPath) {
       const remaining = worktrees.filter((w) => !closedWorktreePaths.has(w.path));
       if (remaining.length > 0) {
@@ -1002,11 +1164,13 @@
   {#if shouldShowTabBar}
     <WorktreeTabs
       worktrees={visibleWorktrees}
+      allWorktrees={worktrees}
       activePath={repoPath}
       dirtyWorktrees={dirtyWorktreePaths}
       disabled={isGitOperating}
       onSelect={selectWorktree}
       onClose={closeWorktreeTab}
+      onReorder={handleReorderWorktrees}
     />
   {/if}
 

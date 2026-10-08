@@ -1,15 +1,21 @@
 <script>
   export let worktrees = [];
+  export let allWorktrees = [];
   export let activePath = "";
   export let dirtyWorktrees = new Set();
   export let disabled = false;
   export let onSelect = (path) => {};
   export let onClose = (path) => {};
+  export let onReorder = (newWorktrees) => {};
 
   let isDropdownOpen = false;
   let searchQuery = "";
+  let draggedIndex = null;
+  let dragOverIndex = null;
 
-  $: filteredWorktrees = worktrees.filter((w) => {
+  $: dropdownItems = allWorktrees && allWorktrees.length > 0 ? allWorktrees : worktrees;
+
+  $: filteredWorktrees = dropdownItems.filter((w) => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase().trim();
     return (
@@ -32,6 +38,47 @@
     onClose(path);
   }
 
+  function handleDragStart(e, index) {
+    if (disabled || index === 0) {
+      e.preventDefault();
+      return;
+    }
+    draggedIndex = index;
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", index.toString());
+  }
+
+  function handleDragOver(e, index) {
+    if (disabled || draggedIndex === null || index === 0) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    dragOverIndex = index;
+  }
+
+  function handleDragLeave(e, index) {
+    if (dragOverIndex === index) {
+      dragOverIndex = null;
+    }
+  }
+
+  function handleDrop(e, targetIndex) {
+    if (disabled || draggedIndex === null || targetIndex === 0) return;
+    e.preventDefault();
+    if (draggedIndex !== targetIndex) {
+      const reordered = [...worktrees];
+      const [item] = reordered.splice(draggedIndex, 1);
+      reordered.splice(targetIndex, 0, item);
+      onReorder(reordered);
+    }
+    draggedIndex = null;
+    dragOverIndex = null;
+  }
+
+  function handleDragEnd() {
+    draggedIndex = null;
+    dragOverIndex = null;
+  }
+
   function toggleDropdown() {
     if (disabled) return;
     isDropdownOpen = !isDropdownOpen;
@@ -49,13 +96,23 @@
 
 <div class="worktree-tabs-bar" class:is-disabled={disabled}>
   <div class="tabs-scroll-area">
-    {#each worktrees as wt, index}
+    {#each worktrees as wt, index (wt.path)}
       <div
         class="worktree-tab"
         class:is-active={wt.path === activePath}
+        class:is-main={wt.is_main || index === 0}
+        class:can-drag={!disabled && index > 0}
         class:is-disabled={disabled}
+        class:is-dragging={draggedIndex === index}
+        class:drag-over={dragOverIndex === index && draggedIndex !== index}
+        draggable={!disabled && index > 0}
+        on:dragstart={(e) => handleDragStart(e, index)}
+        on:dragover={(e) => handleDragOver(e, index)}
+        on:dragleave={(e) => handleDragLeave(e, index)}
+        on:drop={(e) => handleDrop(e, index)}
+        on:dragend={handleDragEnd}
         on:click={() => handleTabClick(wt.path)}
-        title="{wt.name} ({wt.branch}) — {wt.path}"
+        title="{wt.name} ({wt.branch}) — {wt.path}{index > 0 ? ' (Drag to reorder)' : ' (Main repository)'}"
         role="button"
         tabindex="0"
         on:keydown={(e) => e.key === "Enter" && handleTabClick(wt.path)}
@@ -65,6 +122,10 @@
         </svg>
 
         <span class="tab-name">{wt.name}</span>
+
+        {#if wt.is_main || index === 0}
+          <span class="tab-main-pill">MAIN</span>
+        {/if}
 
         {#if wt.branch}
           <span class="tab-branch-pill" class:is-main-branch={wt.branch === "main" || wt.branch === "master"}>
@@ -80,7 +141,7 @@
           <span class="tab-index-hint" title="Switch with ⌘{index + 1}">⌘{index + 1}</span>
         {/if}
 
-        {#if worktrees.length > 1}
+        {#if worktrees.length > 1 && !wt.is_main && index > 0}
           <button
             class="tab-close-btn"
             disabled={disabled}
@@ -104,7 +165,7 @@
         title="All Worktrees in Repository"
       >
         <span class="btn-text">Worktrees</span>
-        <span class="badge-count">{worktrees.length}</span>
+        <span class="badge-count">{dropdownItems.length}</span>
         <span class="chevron">{isDropdownOpen ? "▴" : "▾"}</span>
       </button>
 
@@ -113,10 +174,10 @@
         <div class="dropdown-panel" on:click|stopPropagation>
           <div class="dropdown-header">
             <span>Repository Worktrees</span>
-            <span class="wt-total">{worktrees.length} active</span>
+            <span class="wt-total">{dropdownItems.length} total</span>
           </div>
 
-          {#if worktrees.length > 5}
+          {#if dropdownItems.length > 5}
             <div class="dropdown-search-box">
               <input
                 type="text"
@@ -243,6 +304,36 @@
     overflow: hidden;
     text-overflow: ellipsis;
     letter-spacing: -0.1px;
+  }
+
+  .tab-main-pill {
+    font-size: 9px;
+    font-weight: 700;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: var(--accent-emerald-soft, rgba(16, 185, 129, 0.15));
+    color: var(--accent-emerald, #10b981);
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+
+  .worktree-tab.can-drag {
+    cursor: grab;
+  }
+
+  .worktree-tab.can-drag:active {
+    cursor: grabbing;
+  }
+
+  .worktree-tab.is-dragging {
+    opacity: 0.4;
+    transform: scale(0.96);
+  }
+
+  .worktree-tab.drag-over {
+    background: var(--bg-hover);
+    box-shadow: inset 2px 0 0 var(--accent-emerald);
   }
 
   .tab-branch-pill {
