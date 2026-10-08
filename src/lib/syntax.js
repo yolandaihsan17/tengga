@@ -55,20 +55,47 @@ export function getLanguage(filePath) {
 
 /**
  * Tokenize code into syntax-highlighted HTML spans according to VS Code Dark+ theme.
+ * Supports progressive chunking for large files (maxLines).
  */
-export function highlightCode(code, filePath = "") {
+export function highlightCode(code, filePath = "", maxLines = null) {
   if (!code) return "";
   const lang = getLanguage(filePath);
-  if (lang && Prism.languages[lang]) {
-    try {
-      let html = Prism.highlight(code, Prism.languages[lang], lang);
-      if (code.endsWith("\n")) {
-        html += " ";
-      }
-      return html;
-    } catch (e) {
-      console.warn("Syntax highlight fallback for:", filePath, e);
+  if (!lang || !Prism.languages[lang]) {
+    let fallback = escapeHtml(code);
+    if (code.endsWith("\n")) {
+      fallback += " ";
     }
+    return fallback;
+  }
+
+  // If maxLines is given and the text has more lines, highlight up to maxLines immediately and escape the rest
+  if (maxLines && maxLines > 0) {
+    const lines = code.split("\n");
+    if (lines.length > maxLines) {
+      const head = lines.slice(0, maxLines).join("\n");
+      const tail = lines.slice(maxLines).join("\n");
+      try {
+        let headHtml = Prism.highlight(head, Prism.languages[lang], lang);
+        let tailHtml = escapeHtml(tail);
+        let res = headHtml + "\n" + tailHtml;
+        if (code.endsWith("\n")) {
+          res += " ";
+        }
+        return res;
+      } catch (e) {
+        // Fallback to standard highlight below
+      }
+    }
+  }
+
+  try {
+    let html = Prism.highlight(code, Prism.languages[lang], lang);
+    if (code.endsWith("\n")) {
+      html += " ";
+    }
+    return html;
+  } catch (e) {
+    console.warn("Syntax highlight fallback for:", filePath, e);
   }
 
   let fallback = escapeHtml(code);

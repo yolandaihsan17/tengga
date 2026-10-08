@@ -93,9 +93,71 @@
     }
   }
 
+  let highlightedHtml = "";
+  let highlightTimer = null;
+  let currentHighlightVersion = 0;
+  let cachedLineCount = 0;
+  let gutterText = "1";
+
   $: lineCount = Math.max(1, (editedContent || "").split("\n").length);
-  $: gutterText = Array.from({ length: lineCount }, (_, i) => i + 1).join("\n");
-  $: highlightedHtml = highlightCode(editedContent, file ? file.path : "");
+  $: {
+    if (lineCount !== cachedLineCount) {
+      cachedLineCount = lineCount;
+      gutterText = Array.from({ length: lineCount }, (_, i) => i + 1).join("\n");
+    }
+  }
+
+  // Progressive syntax highlighting: highlight first 800 lines instantly, rest in background
+  $: {
+    const shouldHighlight = (activeView === "content" || !hasHunks) && editedContent && file;
+    if (shouldHighlight) {
+      scheduleProgressiveHighlight(editedContent, file.path);
+    } else if (activeView === "diff" && hasHunks) {
+      if (highlightTimer) {
+        clearTimeout(highlightTimer);
+        highlightTimer = null;
+      }
+      highlightedHtml = "";
+    }
+  }
+
+  function scheduleProgressiveHighlight(content, path) {
+    if (highlightTimer) {
+      clearTimeout(highlightTimer);
+      highlightTimer = null;
+    }
+
+    const version = ++currentHighlightVersion;
+    const lines = content.split("\n");
+    const total = lines.length;
+    const FIRST_CHUNK = 800;
+
+    if (total <= FIRST_CHUNK) {
+      highlightedHtml = highlightCode(content, path);
+      return;
+    }
+
+    // 1. Instantly highlight the first 800 lines (< 15ms) so file opens with zero lag
+    highlightedHtml = highlightCode(content, path, FIRST_CHUNK);
+
+    // 2. Progressively highlight remaining chunks in non-blocking background frames
+    let currentLimit = FIRST_CHUNK;
+    function highlightNextChunk() {
+      highlightTimer = setTimeout(() => {
+        if (version !== currentHighlightVersion) return;
+        currentLimit += 1200;
+        if (currentLimit >= total) {
+          highlightedHtml = highlightCode(content, path);
+        } else {
+          highlightedHtml = highlightCode(content, path, currentLimit);
+          highlightNextChunk();
+        }
+      }, 35);
+    }
+
+    highlightNextChunk();
+  }
+
   $: searchHtml = isFindOpen && matches.length > 0 ? buildSearchHtml(editedContent, matches, matchIndex) : "";
 
   function handleKeydown(e) {

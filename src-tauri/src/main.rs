@@ -112,19 +112,21 @@ fn get_diff(
             // 3. Detect untracked files
             let mut untracked_patches = Vec::new();
             if let Ok(untracked_list) = git::list_untracked_files(&repo) {
-                for u in untracked_list {
+                for (idx, u) in untracked_list.into_iter().enumerate() {
                     if files.contains_key(&u) {
                         continue;
                     }
-                    if let Ok(raw_u) = git::diff_untracked(&repo, &u) {
-                        let (u_files, u_p) = parse_diff(&raw_u, "unstaged");
-                        if let Some(mut first) = u_files.into_iter().next() {
-                            first.has_staged = false;
-                            first.has_unstaged = true;
-                            first.is_untracked = true;
-                            files.insert(first.path.clone(), first);
-                            untracked_patches.extend(u_p);
-                            continue;
+                    if idx < 5 {
+                        if let Ok(raw_u) = git::diff_untracked(&repo, &u) {
+                            let (u_files, u_p) = parse_diff(&raw_u, "unstaged");
+                            if let Some(mut first) = u_files.into_iter().next() {
+                                first.has_staged = false;
+                                first.has_unstaged = true;
+                                first.is_untracked = true;
+                                files.insert(first.path.clone(), first);
+                                untracked_patches.extend(u_p);
+                                continue;
+                            }
                         }
                     }
                     files.insert(

@@ -291,22 +291,55 @@
     }
   }
 
+  async function refreshDiffOnly(reloadSelected = false) {
+    if (!repoPath) return;
+    try {
+      const diffList = await getDiff(repoPath, baseBranch);
+      files = diffList;
+      if (reloadSelected && selectedFile) {
+        loadFileContent(selectedFile);
+      }
+    } catch (e) {
+      error = String(e);
+    }
+  }
+
   async function handleStage(filePath) {
     if (!repoPath || !filePath || isGitOperating) return;
+    const prevFiles = files;
+    // Optimistic UI update: immediately move to staged
+    files = files.map((f) => {
+      if (f.path === filePath) {
+        return { ...f, has_staged: true, has_unstaged: false, is_untracked: false };
+      }
+      return f;
+    });
+
     try {
       await stageFile(repoPath, filePath);
-      await refresh();
+      await refreshDiffOnly(false);
     } catch (e) {
+      files = prevFiles;
       error = `Stage failed: ${String(e)}`;
     }
   }
 
   async function handleUnstage(filePath) {
     if (!repoPath || !filePath || isGitOperating) return;
+    const prevFiles = files;
+    // Optimistic UI update: immediately move to unstaged
+    files = files.map((f) => {
+      if (f.path === filePath) {
+        return { ...f, has_staged: false, has_unstaged: true };
+      }
+      return f;
+    });
+
     try {
       await unstageFile(repoPath, filePath);
-      await refresh();
+      await refreshDiffOnly(false);
     } catch (e) {
+      files = prevFiles;
       error = `Unstage failed: ${String(e)}`;
     }
   }
@@ -324,7 +357,7 @@
         selectedFile = null;
         fileContent = null;
       }
-      await refresh();
+      await refreshDiffOnly(true);
     } catch (e) {
       error = `Discard failed: ${String(e)}`;
     }
@@ -332,20 +365,26 @@
 
   async function handleStageAll() {
     if (!repoPath || isGitOperating) return;
+    const prevFiles = files;
+    files = files.map((f) => ({ ...f, has_staged: true, has_unstaged: false, is_untracked: false }));
     try {
       await stageAll(repoPath);
-      await refresh();
+      await refreshDiffOnly(false);
     } catch (e) {
+      files = prevFiles;
       error = `Stage all failed: ${String(e)}`;
     }
   }
 
   async function handleUnstageAll() {
     if (!repoPath || isGitOperating) return;
+    const prevFiles = files;
+    files = files.map((f) => ({ ...f, has_staged: false, has_unstaged: true }));
     try {
       await unstageAll(repoPath);
-      await refresh();
+      await refreshDiffOnly(false);
     } catch (e) {
+      files = prevFiles;
       error = `Unstage all failed: ${String(e)}`;
     }
   }
@@ -361,7 +400,7 @@
       await discardAll(repoPath);
       selectedFile = null;
       fileContent = null;
-      await refresh();
+      await refreshDiffOnly(true);
     } catch (e) {
       error = `Discard all failed: ${String(e)}`;
     }
@@ -549,7 +588,7 @@
     if (isGitOperating) return;
     try {
       await acceptHunk(repoPath, hunkId);
-      await refresh();
+      await refreshDiffOnly(false);
     } catch (e) {
       error = String(e);
     }
@@ -559,7 +598,7 @@
     if (isGitOperating) return;
     try {
       await rejectHunk(repoPath, hunkId);
-      await refresh();
+      await refreshDiffOnly(false);
     } catch (e) {
       error = String(e);
     }
@@ -583,6 +622,7 @@
       if (selectedFile === filePath) {
         fileContent = newContent;
       }
+      await refreshDiffOnly(false);
     } catch (e) {
       error = String(e);
       throw e;
@@ -601,6 +641,7 @@
       }
       unsavedBuffers.clear();
       unsavedBuffers = new Map();
+      await refreshDiffOnly(false);
     } catch (e) {
       error = String(e);
     }
