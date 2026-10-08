@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tengga — Lightweight Git Diff Reviewer</title>
+    
+    <!-- SEO & Social -->
+    <meta name="description" content="Tengga is a lightweight desktop app built with Tauri & Rust for reviewing uncommitted git changes hunk-by-hunk. Accept, stage, and discard diffs at lightning speed." />
+    <meta property="og:title" content="Tengga — Lightweight Git Diff Reviewer" />
+    <meta property="og:description" content="Review uncommitted git changes hunk-by-hunk. Accept, stage, and revert in milliseconds with zero electron bloat." />
+    <meta property="og:image" content="assets/icon.png" />
+    <meta property="og:type" content="website" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="assets/favicon.png" />
+
+    <!-- Google Fonts matching Tengga App -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+      <div class="nav-container">
+        <a href="#" class="nav-brand">
+          <img src="assets/icon.png" alt="Tengga Logo" class="nav-logo-img" />
+          <span class="nav-brand-title">
+            Tengga
+            <span class="version-badge">v0.1.0</span>
+          </span>
+        </a>
+
+        <div class="nav-links">
+          <a href="#features" class="nav-link">Features</a>
+          <a href="#demo" class="nav-link">Interactive Demo</a>
+          <a href="#benchmark" class="nav-link">Performance</a>
+          <a href="#download" class="nav-link">Downloads</a>
+        </div>
+
+        <div class="nav-actions">
+          <!-- Theme Switcher matching Tengga's exact themes -->
+          <div class="theme-switch-group" title="Select UI Theme">
+            <button class="theme-btn active" data-theme-val="dark">Dark</button>
+            <button class="theme-btn" data-theme-val="light">Light</button>
+            <button class="theme-btn" data-theme-val="glass">Glass</button>
+          </div>
+
+          <a href="https://github.com/yolandaihsan17/tengga" target="_blank" rel="noopener noreferrer" class="nav-link" title="GitHub Repository">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+            </svg>
+          </a>
+
+          <a href="#download" class="btn-nav-download">
+            Download
+          </a>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+      <div class="hero-pill">
+        <span class="hero-pill-badge">v0.1.0</span>
+        <span>Built with Tauri & Rust • Zero Electron Bloat</span>
+      </div>
+
+      <h1 class="hero-title">
+        Git Diff Review, <br />
+        <span class="gradient-text">Made Effortlessly Nimble.</span>
+      </h1>
+
+      <p class="hero-subtitle">
+        Review uncommitted changes hunk-by-hunk. Accept, reject, and stage in seconds—designed for developers who value keyboard flow, instant feedback, and clean git history.
+      </p>
+
+      <div class="hero-cta-group">
+        <div class="download-split-wrapper">
+          <button id="hero-download-btn" class="btn-primary-download">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>Download for macOS</span>
+          </button>
+          <button id="btn-dropdown-toggle" class="btn-download-dropdown-toggle" title="Other operating systems">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+
+          <!-- Dropdown Options -->
+          <div id="download-dropdown-menu" class="download-dropdown-menu">
+            <a href="https://github.com/yolandaihsan17/tengga/releases/latest" class="dropdown-item">
+              <span class="icon">🍎</span>
+              <div class="item-info">
+                <span class="item-title">macOS Universal</span>
+                <span class="item-meta">Apple Silicon (M1/M2/M3/M4) & Intel • .dmg</span>
+              </div>
+            </a>
+            <a href="https://github.com/yolandaihsan17/tengga/releases/latest" class="dropdown-item">
+              <span class="icon">🪟</span>
+              <div class="item-info">
+                <span class="item-title">Windows 64-bit</span>
+                <span class="item-meta">Windows 10/11 • .msi / .exe</span>
+              </div>
+            </a>
+            <a href="https://github.com/yolandaihsan17/tengga/releases/latest" class="dropdown-item">
+              <span class="icon">🐧</span>
+              <div class="item-info">
+                <span class="item-title">Linux</span>
+                <span class="item-meta">Debian, Ubuntu, Arch • .deb / .AppImage</span>
+              </div>
+            </a>
+          </div>
+        </div>
+
+        <div id="hero-download-sub" style="font-size: 13px; color: var(--text-muted);">
+          Free & Open Source • macOS 11+ • &lt;15 MB
+        </div>
+      </div>
+
+      <div class="hero-stats">
+        <div class="stat-item">
+          <div class="stat-dot"></div>
+          <span>&lt; 15MB Binary Size</span>
+        </div>
+        <div class="stat-item">
+          <div class="stat-dot"></div>
+          <span>~30MB RAM Usage</span>
+        </div>
+        <div class="stat-item">
+          <div class="stat-dot"></div>
+          <span>Sub-Millisecond File Watcher</span>
+        </div>
+        <div class="stat-item">
+          <div class="stat-dot"></div>
+          <span>100% Offline & Private</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Interactive Live App Showcase -->
+    <section id="demo" class="showcase-wrapper">
+      <div style="text-align: center; margin-bottom: 16px;">
+        <span class="showcase-hint">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path>
+          </svg>
+          Live Interactive Simulator — Click files or Stage/Revert buttons below!
+        </span>
+      </div>
+
+      <div class="app-mockup" style="position: relative;">
+        <!-- Mockup Window Header -->
+        <div class="mockup-header">
+          <div class="traffic-lights">
+            <div class="traffic-light close"></div>
+            <div class="traffic-light min"></div>
+            <div class="traffic-light max"></div>
+          </div>
+
+          <div class="mockup-title">
+            <div class="repo-badge">
+              <span>📁</span>
+              <span>tengga</span>
+            </div>
+            <div class="branch-pill">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="6" y1="3" x2="6" y2="15"></line>
+                <circle cx="18" cy="6" r="3"></circle>
+                <circle cx="6" cy="18" r="3"></circle>
+                <path d="M18 9a9 9 0 0 1-9 9"></path>
+              </svg>
+              <span>main</span>
+            </div>
+          </div>
+
+          <div class="mockup-controls">
+            <button id="mock-btn-refresh" class="mock-btn-refresh" title="Re-sync repository">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+              </svg>
+              <span>Sync</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Worktree Tabs -->
+        <div class="worktree-tabs-bar">
+          <div class="worktree-tab active">main [active]</div>
+          <div class="worktree-tab">feat/fast-diff</div>
+          <div class="worktree-tab">fix/watcher-debounce</div>
+        </div>
+
+        <!-- Mockup Body -->
+        <div class="mockup-body">
+          <!-- Sidebar -->
+          <div class="mock-sidebar">
+            <div class="sidebar-section-header">
+              <span>Changed Files (3)</span>
+              <span style="font-family: 'JetBrains Mono'; font-size: 10px; color: var(--accent-emerald);">+6 -2</span>
+            </div>
+
+            <ul class="sidebar-file-list">
+              <li class="sidebar-file-item active" data-file="src/lib/auth.ts">
+                <div class="file-info-left">
+                  <span>📄</span>
+                  <span>src/lib/auth.ts</span>
+                </div>
+                <div class="file-badge-changes">
+                  <span class="badge-add">+3</span>
+                  <span class="badge-del">-1</span>
+                </div>
+              </li>
+
+              <li class="sidebar-file-item" data-file="src-tauri/src/watcher.rs">
+                <div class="file-info-left">
+                  <span>🦀</span>
+                  <span>src-tauri/.../watcher.rs</span>
+                </div>
+                <div class="file-badge-changes">
+                  <span class="badge-add">+2</span>
+                </div>
+              </li>
+
+              <li class="sidebar-file-item" data-file="Cargo.toml">
+                <div class="file-info-left">
+                  <span>📦</span>
+                  <span>Cargo.toml</span>
+                </div>
+                <div class="file-badge-changes">
+                  <span class="badge-add">+1</span>
+                  <span class="badge-del">-1</span>
+                </div>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Diff Pane -->
+          <div class="mock-diff-pane">
+            <div class="diff-header-bar">
+              <div class="diff-file-title">
+                <span id="mock-diff-filename">src/lib/auth.ts</span>
+              </div>
+              <div class="diff-view-modes">
+                <button class="view-mode-btn active">Diff</button>
+                <button class="view-mode-btn">Edit</button>
+              </div>
+            </div>
+
+            <!-- Single Hunk Card -->
+            <div id="mock-hunk-card" class="hunk-card">
+              <div class="hunk-toolbar">
+                <div class="hunk-meta">
+                  <span id="mock-range-pill" class="range-pill">@@ -42,7 +42,9 @@ validateSession()</span>
+                  <span id="mock-source-badge" class="source-badge unstaged">unstaged</span>
+                </div>
+                <div class="hunk-actions">
+                  <button id="mock-btn-stage" class="btn-hunk btn-accept">Stage</button>
+                  <button id="mock-btn-reject" class="btn-hunk btn-reject">Revert</button>
+                </div>
+              </div>
+
+              <div id="mock-diff-table" class="diff-table">
+                <!-- Injected via JavaScript -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Toast Feedback inside Mockup -->
+        <div id="mock-toast" class="mock-toast">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          <span id="mock-toast-msg">Hunk staged to git index</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features Grid -->
+    <section id="features" class="features-section">
+      <div class="section-badge">
+        <span>Why Tengga</span>
+      </div>
+      <h2 class="section-title">Built for Precision, Engineered for Speed</h2>
+      <p class="section-subtitle">
+        Everything you need to inspect, stage, and discard Git changes with precision—and nothing you don't.
+      </p>
+
+      <div class="grid-3">
+        <div class="feature-card">
+          <div class="feature-icon-box">✂️</div>
+          <h3 class="feature-card-title">Hunk-by-Hunk Control</h3>
+          <p class="feature-card-desc">
+            Stage clean hunks and leave debug logs unstaged. No more navigating tedious terminal menus in <code>git add -p</code>.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon-box">⚡</div>
+          <h3 class="feature-card-title">Instant File Watcher</h3>
+          <p class="feature-card-desc">
+            Equipped with a debounced native filesystem watcher. Press <code>Cmd+S</code> in VS Code, Zed, or Neovim and Tengga updates in milliseconds.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon-box">🌿</div>
+          <h3 class="feature-card-title">First-Class Worktrees</h3>
+          <p class="feature-card-desc">
+            Switch effortlessly between multiple git worktrees in convenient tabs without juggling multiple app windows.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon-box">🦀</div>
+          <h3 class="feature-card-title">Tauri v2 + Rust Core</h3>
+          <p class="feature-card-desc">
+            Zero Chromium overhead. Native OS webview and Rust backend ensure sub-second cold starts and negligible memory usage.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon-box">🔀</div>
+          <h3 class="feature-card-title">Branch & MR Comparison</h3>
+          <p class="feature-card-desc">
+            Compare your working branch against <code>main</code> or merge request targets before pushing upstream.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon-box">🎨</div>
+          <h3 class="feature-card-title">Dark, Light & Glass Themes</h3>
+          <p class="feature-card-desc">
+            Crafted with modern typography (Plus Jakarta Sans & JetBrains Mono) and native macOS vibrancy for long, fatigue-free review sessions.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Benchmark Section -->
+    <section id="benchmark" class="comparison-section">
+      <div class="section-badge">
+        <span>Benchmark</span>
+      </div>
+      <h2 class="section-title">Lightweight by Design</h2>
+      <p class="section-subtitle">
+        Comparing Tengga to standard electron-based diff and git tools.
+      </p>
+
+      <div class="comparison-table-wrapper">
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th class="col-highlight">Tengga (Tauri + Rust)</th>
+              <th>VS Code Git Diff</th>
+              <th>Heavy Git GUI (Electron)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Memory Footprint</strong></td>
+              <td class="col-highlight">~30 MB RAM</td>
+              <td>~300 MB - 600 MB</td>
+              <td>~450 MB - 800 MB</td>
+            </tr>
+            <tr>
+              <td><strong>Cold Launch Time</strong></td>
+              <td class="col-highlight">&lt; 150 ms</td>
+              <td>1.8 s - 3.2 s</td>
+              <td>2.5 s - 4.5 s</td>
+            </tr>
+            <tr>
+              <td><strong>Installer Size</strong></td>
+              <td class="col-highlight">&lt; 15 MB</td>
+              <td>~100 MB+</td>
+              <td>~120 MB - 180 MB</td>
+            </tr>
+            <tr>
+              <td><strong>Focused Workflow</strong></td>
+              <td class="col-highlight">Single-Click Hunk Review</td>
+              <td>Nested file tree panel</td>
+              <td>Cluttered full-suite dashboard</td>
+            </tr>
+            <tr>
+              <td><strong>Worktree Tab Support</strong></td>
+              <td class="col-highlight">Built-in Native Tabs</td>
+              <td>Requires new workspace</td>
+              <td>Multiple windows</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Downloads Section -->
+    <section id="download" class="downloads-section">
+      <div class="section-badge">
+        <span>Get Started</span>
+      </div>
+      <h2 class="section-title">Download Tengga for Your OS</h2>
+      <p class="section-subtitle">
+        Free and open source. Fast, standalone, and ready to enhance your daily git workflow.
+      </p>
+
+      <div class="downloads-grid">
+        <!-- macOS -->
+        <div class="download-card">
+          <div class="download-card-os">🍎</div>
+          <h3 class="download-card-title">macOS</h3>
+          <div class="download-card-meta">Universal Binary (Apple Silicon & Intel) • macOS 11+</div>
+          <a href="https://github.com/yolandaihsan17/tengga/releases/latest" class="btn-card-download">
+            Download .dmg
+          </a>
+          <div class="download-card-sublinks">
+            <a href="https://github.com/yolandaihsan17/tengga/releases">View all macOS assets &rarr;</a>
+          </div>
+        </div>
+
+        <!-- Windows -->
+        <div class="download-card">
+          <div class="download-card-os">🪟</div>
+          <h3 class="download-card-title">Windows</h3>
+          <div class="download-card-meta">64-bit Installer • Windows 10 & 11</div>
+          <a href="https://github.com/yolandaihsan17/tengga/releases/latest" class="btn-card-download">
+            Download .msi / .exe
+          </a>
+          <div class="download-card-sublinks">
+            <a href="https://github.com/yolandaihsan17/tengga/releases">View all Windows assets &rarr;</a>
+          </div>
+        </div>
+
+        <!-- Linux -->
+        <div class="download-card">
+          <div class="download-card-os">🐧</div>
+          <h3 class="download-card-title">Linux</h3>
+          <div class="download-card-meta">Debian, Ubuntu, Fedora, Arch</div>
+          <a href="https://github.com/yolandaihsan17/tengga/releases/latest" class="btn-card-download">
+            Download .deb / AppImage
+          </a>
+          <div class="download-card-sublinks">
+            <a href="https://github.com/yolandaihsan17/tengga/releases">View all Linux assets &rarr;</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="footer-container">
+        <div class="footer-left">
+          <img src="assets/icon.png" alt="Tengga Logo" style="width: 24px; height: 24px; border-radius: 6px;" />
+          <span><strong>Tengga</strong> — The Lightweight Git Diff Reviewer</span>
+        </div>
+
+        <div class="footer-links">
+          <a href="https://github.com/yolandaihsan17" target="_blank" rel="noopener noreferrer">Created by Yolanda Ihsan</a>
+          <a href="https://github.com/yolandaihsan17/tengga" target="_blank" rel="noopener noreferrer">GitHub</a>
+          <a href="https://github.com/yolandaihsan17/tengga/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">License</a>
+        </div>
+      </div>
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>
