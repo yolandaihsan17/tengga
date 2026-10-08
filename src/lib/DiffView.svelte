@@ -473,7 +473,6 @@
         {#each file.hunks as hunk (hunk.id)}
           <HunkView
             {hunk}
-            {baseBranch}
             onAccept={(id) => onAccept(file.path, id)}
             onReject={(id) => onReject(file.path, id)}
           />

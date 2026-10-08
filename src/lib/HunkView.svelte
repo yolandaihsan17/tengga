@@ -1,6 +1,5 @@
 <script>
   export let hunk;
-  export let baseBranch = null;
   export let onAccept;
   export let onReject;
 
@@ -46,9 +45,7 @@
   <div class="hunk-toolbar">
     <div class="hunk-meta">
       <span class="range-pill">{hunk.header}</span>
-      {#if hunk.source === "branch_compare"}
-        <span class="source-badge branch">MR vs {baseBranch || "base"}</span>
-      {:else}
+      {#if hunk.source && hunk.source !== "branch_compare"}
         <span class="source-badge {hunk.source}">{hunk.source}</span>
       {/if}
     </div>
@@ -132,12 +129,6 @@
   }
 
   .source-badge.staged {
-    background: var(--accent-emerald-soft);
-    color: var(--accent-emerald);
-    border: none;
-  }
-
-  .source-badge.branch {
     background: var(--accent-emerald-soft);
     color: var(--accent-emerald);
     border: none;
