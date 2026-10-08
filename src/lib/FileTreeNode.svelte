@@ -70,6 +70,9 @@
 {:else}
   <button
     class="row file-row"
+    class:has-actions={Boolean(stageMode)}
+    class:staged-row={stageMode === "staged"}
+    class:unstaged-row={stageMode === "unstaged"}
     style="padding-left: {26 + depth * 14}px;"
     class:active={node.path === selectedFile}
     class:modified={node.hasChanges}
@@ -83,49 +86,54 @@
       </svg>
     </span>
     <span class="file-label" class:is-modified={node.hasChanges}>{node.name}</span>
-    {#if node.isUntracked}
-      <span class="status-badge untracked" title="Untracked file">U</span>
-    {:else if node.hasChanges}
-      <span class="change-circle" class:dirty={node.isDirty} title={node.isDirty ? "Unsaved edits" : "Modified in git"}>●</span>
-    {/if}
 
-    {#if stageMode === "staged"}
-      <div class="file-hover-actions">
-        <button
-          class="file-action-icon-btn unstage-btn"
-          disabled={disabled}
-          on:click|stopPropagation={() => onUnstage(node.path)}
-          title="Unstage Changes (-)"
-        >
-          <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor">
-            <path d="M3.75 7.25h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1 0-1.5z"/>
-          </svg>
-        </button>
+    <div class="file-trailing">
+      <div class="file-status-indicator">
+        {#if node.isUntracked}
+          <span class="status-badge untracked" title="Untracked file">U</span>
+        {:else if node.hasChanges}
+          <span class="change-circle" class:dirty={node.isDirty} title={node.isDirty ? "Unsaved edits" : "Modified in git"}>●</span>
+        {/if}
       </div>
-    {:else if stageMode === "unstaged"}
-      <div class="file-hover-actions">
-        <button
-          class="file-action-icon-btn stage-btn"
-          disabled={disabled}
-          on:click|stopPropagation={() => onStage(node.path)}
-          title="Stage Changes (+)"
-        >
-          <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor">
-            <path d="M7.25 3.75a.75.75 0 0 1 1.5 0v3.5h3.5a.75.75 0 0 1 0 1.5h-3.5v3.5a.75.75 0 0 1-1.5 0v-3.5h-3.5a.75.75 0 0 1 0-1.5h3.5v-3.5z"/>
-          </svg>
-        </button>
-        <button
-          class="file-action-icon-btn discard-btn"
-          disabled={disabled}
-          on:click|stopPropagation={() => onDiscard(node.path)}
-          title="Discard Changes"
-        >
-          <svg viewBox="0 0 16 16" width="10" height="10" fill="currentColor">
-            <path fill-rule="evenodd" d="M1.25 8A6.75 6.75 0 1 1 8 14.75a.75.75 0 0 1 0-1.5 5.25 5.25 0 1 0-4.66-2.85l1.44-.36a.75.75 0 1 1 .36 1.45l-3 1a.75.75 0 0 1-.95-.55l-1-3a.75.75 0 1 1 1.42-.48l.45 1.34A6.71 6.71 0 0 1 1.25 8z"/>
-          </svg>
-        </button>
-      </div>
-    {/if}
+
+      {#if stageMode === "staged"}
+        <div class="file-hover-actions">
+          <button
+            class="file-action-icon-btn unstage-btn"
+            disabled={disabled}
+            on:click|stopPropagation={() => onUnstage(node.path)}
+            title="Unstage Changes (-)"
+          >
+            <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor">
+              <path d="M3.75 7.25h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1 0-1.5z"/>
+            </svg>
+          </button>
+        </div>
+      {:else if stageMode === "unstaged"}
+        <div class="file-hover-actions">
+          <button
+            class="file-action-icon-btn stage-btn"
+            disabled={disabled}
+            on:click|stopPropagation={() => onStage(node.path)}
+            title="Stage Changes (+)"
+          >
+            <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor">
+              <path d="M7.25 3.75a.75.75 0 0 1 1.5 0v3.5h3.5a.75.75 0 0 1 0 1.5h-3.5v3.5a.75.75 0 0 1-1.5 0v-3.5h-3.5a.75.75 0 0 1 0-1.5h3.5v-3.5z"/>
+            </svg>
+          </button>
+          <button
+            class="file-action-icon-btn discard-btn"
+            disabled={disabled}
+            on:click|stopPropagation={() => onDiscard(node.path)}
+            title="Discard Changes"
+          >
+            <svg viewBox="0 0 16 16" width="10" height="10" fill="currentColor">
+              <path fill-rule="evenodd" d="M1.25 8A6.75 6.75 0 1 1 8 14.75a.75.75 0 0 1 0-1.5 5.25 5.25 0 1 0-4.66-2.85l1.44-.36a.75.75 0 1 1 .36 1.45l-3 1a.75.75 0 0 1-.95-.55l-1-3a.75.75 0 1 1 1.42-.48l.45 1.34A6.71 6.71 0 0 1 1.25 8z"/>
+            </svg>
+          </button>
+        </div>
+      {/if}
+    </div>
   </button>
 {/if}
 
@@ -144,12 +152,15 @@
     display: flex;
     align-items: center;
     width: calc(100% - 8px);
+    height: 28px;
+    min-height: 28px;
+    max-height: 28px;
     margin: 1px 4px;
     background: transparent;
     border: none;
-    border-radius: 8px;
-    padding-top: 6px;
-    padding-bottom: 6px;
+    border-radius: 6px;
+    padding-top: 0;
+    padding-bottom: 0;
     padding-right: 8px;
     cursor: pointer;
     font-size: 11.5px;
@@ -161,6 +172,12 @@
 
   .folder-row {
     color: var(--folder-text, var(--text-primary));
+    height: 28px;
+    min-height: 28px;
+    max-height: 28px;
+    padding-top: 0;
+    padding-bottom: 0;
+    padding-right: 8px;
   }
 
   .folder-row:hover {
@@ -202,6 +219,7 @@
 
   .folder-title {
     flex: 1;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -209,7 +227,7 @@
     font-size: 11.5px;
     font-weight: 600;
     color: var(--folder-text, var(--text-primary));
-    line-height: 1.3;
+    line-height: 28px;
     transition: color 0.12s ease;
   }
 
@@ -220,8 +238,11 @@
   .file-row {
     color: var(--text-primary);
     font-weight: 450;
-    padding-top: 6px;
-    padding-bottom: 6px;
+    height: 28px;
+    min-height: 28px;
+    max-height: 28px;
+    padding-top: 0;
+    padding-bottom: 0;
     padding-right: 8px;
   }
 
@@ -284,20 +305,52 @@
 
   .file-label {
     flex: 1;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
     font-size: 11.5px;
     color: var(--text-primary);
-    line-height: 1.3;
+    line-height: 28px;
+    margin-right: 4px;
+  }
+
+  .file-trailing {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    margin-left: auto;
+    flex-shrink: 0;
+    height: 22px;
+  }
+
+  .file-row.unstaged-row .file-trailing {
+    min-width: 44px;
+  }
+
+  .file-row.staged-row .file-trailing {
+    min-width: 22px;
+  }
+
+  .file-status-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-shrink: 0;
+    transition: opacity 0.1s ease;
+  }
+
+  .file-row.has-actions:hover .file-status-indicator {
+    opacity: 0;
   }
 
   .change-circle {
     font-size: 8px;
     line-height: 1;
     color: #d97706;
-    margin-left: 6px;
+    margin-left: 2px;
     flex-shrink: 0;
     display: inline-block;
   }
@@ -309,6 +362,7 @@
   .change-circle.folder-dot {
     font-size: 6px;
     color: #d97706;
+    margin-left: 6px;
   }
 
   .status-badge.untracked {
@@ -319,21 +373,26 @@
     background: var(--accent-emerald-soft);
     padding: 0 4px;
     border-radius: 3px;
-    margin-left: 6px;
+    margin-left: 2px;
     flex-shrink: 0;
   }
 
   .file-hover-actions {
-    display: none;
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
     align-items: center;
     gap: 2px;
-    margin-left: auto;
-    padding-left: 4px;
-    flex-shrink: 0;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.1s ease;
   }
 
   .file-row:hover .file-hover-actions {
-    display: flex;
+    opacity: 1;
+    pointer-events: auto;
   }
 
   .file-action-icon-btn {
@@ -349,6 +408,7 @@
     cursor: pointer;
     transition: all 0.1s ease;
     padding: 0;
+    flex-shrink: 0;
   }
 
   .file-action-icon-btn:hover {

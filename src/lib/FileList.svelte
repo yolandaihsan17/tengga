@@ -691,7 +691,11 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 4px 6px;
+    height: 28px;
+    min-height: 28px;
+    max-height: 28px;
+    box-sizing: border-box;
+    padding: 0 6px;
     border-radius: 4px;
     cursor: pointer;
     user-select: none;
