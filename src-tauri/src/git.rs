@@ -205,12 +205,22 @@ pub fn pull_branch(repo: &Path, branch: &str) -> Result<String, String> {
             .map_err(|e| e.to_string())?;
 
         if output.status.success() {
-            let msg = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            Ok(if msg.is_empty() {
-                format!("Pulled latest for {}", branch)
+            let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if stdout.contains("Already up to date") {
+                Ok(format!("Branch '{}' is already up to date", branch))
             } else {
-                msg
-            })
+                let summary = stdout
+                    .lines()
+                    .rev()
+                    .find(|line| line.contains("changed") || line.contains("insertion") || line.contains("deletion"))
+                    .map(|line| line.trim());
+
+                if let Some(s) = summary {
+                    Ok(format!("Updated '{}' ({})", branch, s))
+                } else {
+                    Ok(format!("Successfully pulled latest changes for '{}'", branch))
+                }
+            }
         } else {
             let err = String::from_utf8_lossy(&output.stderr).trim().to_string();
             Err(if err.is_empty() {
@@ -228,12 +238,7 @@ pub fn pull_branch(repo: &Path, branch: &str) -> Result<String, String> {
             .map_err(|e| e.to_string())?;
 
         if output.status.success() {
-            let msg = String::from_utf8_lossy(&output.stderr).trim().to_string();
-            Ok(if msg.is_empty() {
-                format!("Updated '{}' to latest remote", branch)
-            } else {
-                msg
-            })
+            Ok(format!("Successfully updated '{}' from remote", branch))
         } else {
             let fallback = Command::new("git")
                 .args(["fetch", "origin", branch])
@@ -242,7 +247,7 @@ pub fn pull_branch(repo: &Path, branch: &str) -> Result<String, String> {
                 .map_err(|e| e.to_string())?;
 
             if fallback.status.success() {
-                Ok(format!("Fetched remote updates for '{}'", branch))
+                Ok(format!("Successfully fetched remote updates for '{}'", branch))
             } else {
                 let err = String::from_utf8_lossy(&output.stderr).trim().to_string();
                 Err(if err.is_empty() {
@@ -461,15 +466,7 @@ pub fn push_branch(repo: &Path, branch: &str) -> Result<String, String> {
         .map_err(|e| e.to_string())?;
 
     if output.status.success() {
-        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        if !stdout.is_empty() {
-            Ok(stdout)
-        } else if !stderr.is_empty() {
-            Ok(stderr)
-        } else {
-            Ok(format!("Pushed '{}' to origin", branch))
-        }
+        Ok(format!("Successfully pushed '{}' to origin", branch))
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
         if stderr.contains("set-upstream") || stderr.contains("no upstream") {

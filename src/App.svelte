@@ -38,27 +38,33 @@
     hideTabBarWhenSingle: true,
     autoRefreshOnFocus: true,
     warnUnsavedOnSwitch: true,
-    theme: "glass",
+    theme: "dark",
     glassBlur: 0.30,
   };
 
   let settings = { ...DEFAULT_SETTINGS };
   let isSettingsOpen = false;
-  let currentTheme = "glass";
+  let currentTheme = "dark";
 
   function loadSettings() {
     try {
+      const explicitTheme = localStorage.getItem("tengga_theme_explicit");
       const stored = localStorage.getItem("tengga_settings");
       if (stored) {
         settings = { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
+        if (!explicitTheme && settings.theme === "glass") {
+          settings.theme = "dark";
+        }
       } else {
         const legacyTheme = localStorage.getItem("tengga_theme");
-        if (legacyTheme) {
+        if (legacyTheme && explicitTheme) {
           settings.theme = legacyTheme;
+        } else {
+          settings.theme = "dark";
         }
       }
     } catch (e) {}
-    currentTheme = settings.theme || "glass";
+    currentTheme = settings.theme || "dark";
   }
 
   function handleSaveSettings(newSettings) {
@@ -67,6 +73,7 @@
     try {
       localStorage.setItem("tengga_settings", JSON.stringify(settings));
       localStorage.setItem("tengga_theme", settings.theme);
+      localStorage.setItem("tengga_theme_explicit", "true");
     } catch (e) {}
     applyTheme(settings.theme, settings.glassBlur);
   }
@@ -235,7 +242,12 @@
 
   function setStatus(msg, timeoutMs = 4500) {
     if (statusTimeout) clearTimeout(statusTimeout);
-    statusMessage = msg;
+    if (!msg) {
+      statusMessage = null;
+      return;
+    }
+    const cleanMsg = String(msg).trim().split("\n")[0].trim();
+    statusMessage = cleanMsg;
     if (timeoutMs > 0) {
       statusTimeout = setTimeout(() => {
         statusMessage = null;
@@ -1702,6 +1714,9 @@
     flex: 1;
     font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 11.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .dismiss-banner {

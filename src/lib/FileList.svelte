@@ -9,7 +9,7 @@
   export let baseBranch = null;
   export let comparisonInfo = null;
   export let onSelect;
-  export let currentTheme = "light";
+  export let currentTheme = "dark";
   export let onThemeChange = () => {};
   export let onStage = () => {};
   export let onUnstage = () => {};

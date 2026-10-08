@@ -14,7 +14,11 @@
     <script>
       (function() {
         try {
-          const t = localStorage.getItem('tengga_theme') || 'glass';
+          const explicit = localStorage.getItem('tengga_theme_explicit');
+          let t = localStorage.getItem('tengga_theme');
+          if (!explicit || !t) {
+            t = 'dark';
+          }
           document.documentElement.setAttribute('data-theme', t);
         } catch (e) {}
       })();

@@ -10,7 +10,7 @@
     hideTabBarWhenSingle: true,
     autoRefreshOnFocus: true,
     warnUnsavedOnSwitch: true,
-    theme: "glass",
+    theme: "dark",
     glassBlur: 0.30,
   };
 
@@ -37,7 +37,7 @@
       hideTabBarWhenSingle: true,
       autoRefreshOnFocus: true,
       warnUnsavedOnSwitch: true,
-      theme: "glass",
+      theme: "dark",
       glassBlur: 0.30,
     };
     onSave(settings);
