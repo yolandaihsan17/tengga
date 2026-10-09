@@ -17,17 +17,25 @@
   export let onStageAll = () => {};
   export let onUnstageAll = () => {};
   export let onDiscardAll = () => {};
+  export let onRequestRepoFiles = () => {};
   export let disabled = false;
 
   let isStagedExpanded = true;
   let isUnstagedExpanded = true;
 
-  let filterScope = "all";    // "all" | "changes"
+  let filterScope = "changes";    // "changes" (default, lightweight) | "all"
   let searchQuery = "";
   let expandedAllFolders = {};
   let expandedChangesFolders = {};
   let prevFiles = null;
   let prevRepoFiles = null;
+
+  function handleScopeChange(newScope) {
+    filterScope = newScope;
+    if (newScope === "all" && (!repoFiles || repoFiles.length === 0)) {
+      onRequestRepoFiles();
+    }
+  }
 
   function computeAllFolderPaths(fileList) {
     const res = {};
@@ -65,8 +73,11 @@
   $: totalAdditions = files.reduce((acc, f) => acc + (f.additions || 0), 0);
   $: totalDeletions = files.reduce((acc, f) => acc + (f.deletions || 0), 0);
 
-  // Combine repoFiles with any modified files (e.g. untracked or deleted) into a unified set of paths
-  $: unifiedPaths = Array.from(new Set([...repoFiles, ...files.map((f) => f.path)])).sort();
+  // In "changes" mode, only process modified files (saves heap & CPU on large repos)
+  $: sourcePaths = filterScope === "changes"
+    ? files.map((f) => f.path)
+    : Array.from(new Set([...repoFiles, ...files.map((f) => f.path)]));
+  $: unifiedPaths = sourcePaths.sort();
 
   // When a file is selected, ensure its ancestor folders are expanded so it is visible in tree
   $: if (selectedFile) {
@@ -170,7 +181,7 @@
 
   $: stagedTreeData = buildTree(stagedFilteredPaths, diffMap, dirtyFiles);
   $: unstagedTreeData = buildTree(unstagedFilteredPaths, diffMap, dirtyFiles);
-  $: treeData = buildTree(filteredPaths, diffMap, dirtyFiles);
+  $: treeData = filterScope === "all" ? buildTree(filteredPaths, diffMap, dirtyFiles) : [];
 
   function buildTree(paths, diffs, dirtySet) {
     const root = { name: "", type: "folder", children: {}, path: "", additions: 0, deletions: 0, hasChanges: false };
@@ -253,17 +264,17 @@
       <div class="segmented-control">
         <button
           class="seg-btn"
-          class:active={filterScope === "all"}
-          on:click={() => (filterScope = "all")}
+          class:active={filterScope === "changes"}
+          on:click={() => handleScopeChange("changes")}
         >
-          All Files
+          Changes ({files.length})
         </button>
         <button
           class="seg-btn"
-          class:active={filterScope === "changes"}
-          on:click={() => (filterScope = "changes")}
+          class:active={filterScope === "all"}
+          on:click={() => handleScopeChange("all")}
         >
-          Changes ({files.length})
+          All Files
         </button>
       </div>
 

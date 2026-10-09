@@ -126,6 +126,7 @@
 
   let files = [];
   let repoFiles = [];
+  let isAllFilesRequested = false;
   let selectedFile = null;
   let error = null;
   let unlisten = null;
@@ -213,20 +214,31 @@
     }
   }
 
+  async function handleRequestRepoFiles() {
+    if (!repoPath) return;
+    isAllFilesRequested = true;
+    try {
+      repoFiles = await getRepoFiles(repoPath);
+    } catch (e) {
+      repoFiles = [];
+    }
+  }
+
   async function refresh() {
     if (!repoPath) return;
     isRefreshing = true;
     try {
-      const [diffList, allList, branch, compInfo] = await Promise.all([
+      const [diffList, branch, compInfo] = await Promise.all([
         getDiff(repoPath, baseBranch),
-        getRepoFiles(repoPath).catch(() => []),
         getCurrentBranch(repoPath).catch(() => null),
         baseBranch ? getBranchComparisonInfo(repoPath, baseBranch).catch(() => null) : Promise.resolve(null),
       ]);
       files = diffList;
-      repoFiles = allList;
       currentBranch = branch;
       comparisonInfo = compInfo;
+      if (isAllFilesRequested) {
+        repoFiles = await getRepoFiles(repoPath).catch(() => []);
+      }
       if (selectedFile) {
         loadFileContent(selectedFile);
       }
@@ -683,8 +695,11 @@
     error = null;
     repoPath = targetPath;
     selectedFile = null;
+    fileContent = null;
     baseBranch = null;
     comparisonInfo = null;
+    isAllFilesRequested = false;
+    repoFiles = [];
 
     try {
       await startWatcher(targetPath);
@@ -733,8 +748,11 @@
       if (!path) return;
       repoPath = path;
       selectedFile = null;
+      fileContent = null;
       baseBranch = null;
       comparisonInfo = null;
+      isAllFilesRequested = false;
+      repoFiles = [];
       closedWorktreePaths.clear();
       closedWorktreePaths = new Set();
       await Promise.all([
@@ -1221,6 +1239,7 @@
         onStageAll={handleStageAll}
         onUnstageAll={handleUnstageAll}
         onDiscardAll={handleDiscardAll}
+        onRequestRepoFiles={handleRequestRepoFiles}
       />
     </aside>
     <section class="diff-panel">
