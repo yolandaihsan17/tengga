@@ -410,26 +410,6 @@ a {
   background: var(--accent-emerald-dark);
 }
 
-.btn-hero-secondary {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 14px 22px;
-  border-radius: 12px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-card);
-  color: var(--text-primary);
-  font-weight: 700;
-  font-size: 15px;
-  transition: all 0.15s ease;
-  box-shadow: var(--shadow-card);
-}
-
-.btn-hero-secondary:hover {
-  background: var(--bg-hover);
-  border-color: var(--accent-emerald);
-}
-
 .hero-foot-note {
   font-size: 13px;
   color: var(--text-muted);
