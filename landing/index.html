@@ -15,11 +15,15 @@
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="assets/favicon.png" />
 
-    <!-- Google Fonts matching Tengga App -->
+    <!-- Google Fonts matching Tengga App + Material Symbols -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
       rel="stylesheet"
     />
 
@@ -39,7 +43,6 @@
 
         <div class="nav-links">
           <a href="#features" class="nav-link">Features</a>
-          <a href="#demo" class="nav-link">Interactive Demo</a>
           <a href="#benchmark" class="nav-link">Performance</a>
           <a href="#download" class="nav-link">Downloads</a>
         </div>
@@ -67,11 +70,6 @@
 
     <!-- Hero Section -->
     <section class="hero">
-      <div class="hero-pill">
-        <span class="hero-pill-badge">v0.1.0</span>
-        <span>Built with Tauri & Rust • Zero Electron Bloat</span>
-      </div>
-
       <h1 class="hero-title">
         Git Diff Review, <br />
         <span class="gradient-text">Made Effortlessly Nimble.</span>
@@ -84,37 +82,31 @@
       <div class="hero-cta-group">
         <div class="download-split-wrapper">
           <button id="hero-download-btn" class="btn-primary-download">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="7 10 12 15 17 10"></polyline>
-              <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
+            <span class="material-symbols-outlined">download</span>
             <span>Download for macOS</span>
           </button>
           <button id="btn-dropdown-toggle" class="btn-download-dropdown-toggle" title="Other operating systems">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
+            <span class="material-symbols-outlined">expand_more</span>
           </button>
 
           <!-- Dropdown Options -->
           <div id="download-dropdown-menu" class="download-dropdown-menu">
             <a href="https://github.com/yolandaihsan17/tengga/releases/latest" class="dropdown-item">
-              <span class="icon">🍎</span>
+              <span class="icon material-symbols-outlined">desktop_mac</span>
               <div class="item-info">
                 <span class="item-title">macOS Universal</span>
                 <span class="item-meta">Apple Silicon (M1/M2/M3/M4) & Intel • .dmg</span>
               </div>
             </a>
             <a href="https://github.com/yolandaihsan17/tengga/releases/latest" class="dropdown-item">
-              <span class="icon">🪟</span>
+              <span class="icon material-symbols-outlined">desktop_windows</span>
               <div class="item-info">
                 <span class="item-title">Windows 64-bit</span>
                 <span class="item-meta">Windows 10/11 • .msi / .exe</span>
               </div>
             </a>
             <a href="https://github.com/yolandaihsan17/tengga/releases/latest" class="dropdown-item">
-              <span class="icon">🐧</span>
+              <span class="icon material-symbols-outlined">terminal</span>
               <div class="item-info">
                 <span class="item-title">Linux</span>
                 <span class="item-meta">Debian, Ubuntu, Arch • .deb / .AppImage</span>
@@ -148,147 +140,6 @@
       </div>
     </section>
 
-    <!-- Interactive Live App Showcase -->
-    <section id="demo" class="showcase-wrapper">
-      <div style="text-align: center; margin-bottom: 16px;">
-        <span class="showcase-hint">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path>
-          </svg>
-          Live Interactive Simulator — Click files or Stage/Revert buttons below!
-        </span>
-      </div>
-
-      <div class="app-mockup" style="position: relative;">
-        <!-- Mockup Window Header -->
-        <div class="mockup-header">
-          <div class="traffic-lights">
-            <div class="traffic-light close"></div>
-            <div class="traffic-light min"></div>
-            <div class="traffic-light max"></div>
-          </div>
-
-          <div class="mockup-title">
-            <div class="repo-badge">
-              <span>📁</span>
-              <span>tengga</span>
-            </div>
-            <div class="branch-pill">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="6" y1="3" x2="6" y2="15"></line>
-                <circle cx="18" cy="6" r="3"></circle>
-                <circle cx="6" cy="18" r="3"></circle>
-                <path d="M18 9a9 9 0 0 1-9 9"></path>
-              </svg>
-              <span>main</span>
-            </div>
-          </div>
-
-          <div class="mockup-controls">
-            <button id="mock-btn-refresh" class="mock-btn-refresh" title="Re-sync repository">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="23 4 23 10 17 10"></polyline>
-                <polyline points="1 20 1 14 7 14"></polyline>
-                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-              </svg>
-              <span>Sync</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Worktree Tabs -->
-        <div class="worktree-tabs-bar">
-          <div class="worktree-tab active">main [active]</div>
-          <div class="worktree-tab">feat/fast-diff</div>
-          <div class="worktree-tab">fix/watcher-debounce</div>
-        </div>
-
-        <!-- Mockup Body -->
-        <div class="mockup-body">
-          <!-- Sidebar -->
-          <div class="mock-sidebar">
-            <div class="sidebar-section-header">
-              <span>Changed Files (3)</span>
-              <span style="font-family: 'JetBrains Mono'; font-size: 10px; color: var(--accent-emerald);">+6 -2</span>
-            </div>
-
-            <ul class="sidebar-file-list">
-              <li class="sidebar-file-item active" data-file="src/lib/auth.ts">
-                <div class="file-info-left">
-                  <span>📄</span>
-                  <span>src/lib/auth.ts</span>
-                </div>
-                <div class="file-badge-changes">
-                  <span class="badge-add">+3</span>
-                  <span class="badge-del">-1</span>
-                </div>
-              </li>
-
-              <li class="sidebar-file-item" data-file="src-tauri/src/watcher.rs">
-                <div class="file-info-left">
-                  <span>🦀</span>
-                  <span>src-tauri/.../watcher.rs</span>
-                </div>
-                <div class="file-badge-changes">
-                  <span class="badge-add">+2</span>
-                </div>
-              </li>
-
-              <li class="sidebar-file-item" data-file="Cargo.toml">
-                <div class="file-info-left">
-                  <span>📦</span>
-                  <span>Cargo.toml</span>
-                </div>
-                <div class="file-badge-changes">
-                  <span class="badge-add">+1</span>
-                  <span class="badge-del">-1</span>
-                </div>
-              </li>
-            </ul>
-          </div>
-
-          <!-- Diff Pane -->
-          <div class="mock-diff-pane">
-            <div class="diff-header-bar">
-              <div class="diff-file-title">
-                <span id="mock-diff-filename">src/lib/auth.ts</span>
-              </div>
-              <div class="diff-view-modes">
-                <button class="view-mode-btn active">Diff</button>
-                <button class="view-mode-btn">Edit</button>
-              </div>
-            </div>
-
-            <!-- Single Hunk Card -->
-            <div id="mock-hunk-card" class="hunk-card">
-              <div class="hunk-toolbar">
-                <div class="hunk-meta">
-                  <span id="mock-range-pill" class="range-pill">@@ -42,7 +42,9 @@ validateSession()</span>
-                  <span id="mock-source-badge" class="source-badge unstaged">unstaged</span>
-                </div>
-                <div class="hunk-actions">
-                  <button id="mock-btn-stage" class="btn-hunk btn-accept">Stage</button>
-                  <button id="mock-btn-reject" class="btn-hunk btn-reject">Revert</button>
-                </div>
-              </div>
-
-              <div id="mock-diff-table" class="diff-table">
-                <!-- Injected via JavaScript -->
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Toast Feedback inside Mockup -->
-        <div id="mock-toast" class="mock-toast">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <polyline points="20 6 9 17 4 12"></polyline>
-          </svg>
-          <span id="mock-toast-msg">Hunk staged to git index</span>
-        </div>
-      </div>
-    </section>
-
     <!-- Features Grid -->
     <section id="features" class="features-section">
       <div class="section-badge">
@@ -301,7 +152,9 @@
 
       <div class="grid-3">
         <div class="feature-card">
-          <div class="feature-icon-box">✂️</div>
+          <div class="feature-icon-box">
+            <span class="material-symbols-outlined">splitscreen</span>
+          </div>
           <h3 class="feature-card-title">Hunk-by-Hunk Control</h3>
           <p class="feature-card-desc">
             Stage clean hunks and leave debug logs unstaged. No more navigating tedious terminal menus in <code>git add -p</code>.
@@ -309,7 +162,9 @@
         </div>
 
         <div class="feature-card">
-          <div class="feature-icon-box">⚡</div>
+          <div class="feature-icon-box">
+            <span class="material-symbols-outlined">bolt</span>
+          </div>
           <h3 class="feature-card-title">Instant File Watcher</h3>
           <p class="feature-card-desc">
             Equipped with a debounced native filesystem watcher. Press <code>Cmd+S</code> in VS Code, Zed, or Neovim and Tengga updates in milliseconds.
@@ -317,7 +172,9 @@
         </div>
 
         <div class="feature-card">
-          <div class="feature-icon-box">🌿</div>
+          <div class="feature-icon-box">
+            <span class="material-symbols-outlined">account_tree</span>
+          </div>
           <h3 class="feature-card-title">First-Class Worktrees</h3>
           <p class="feature-card-desc">
             Switch effortlessly between multiple git worktrees in convenient tabs without juggling multiple app windows.
@@ -325,7 +182,9 @@
         </div>
 
         <div class="feature-card">
-          <div class="feature-icon-box">🦀</div>
+          <div class="feature-icon-box">
+            <span class="material-symbols-outlined">rocket_launch</span>
+          </div>
           <h3 class="feature-card-title">Tauri v2 + Rust Core</h3>
           <p class="feature-card-desc">
             Zero Chromium overhead. Native OS webview and Rust backend ensure sub-second cold starts and negligible memory usage.
@@ -333,7 +192,9 @@
         </div>
 
         <div class="feature-card">
-          <div class="feature-icon-box">🔀</div>
+          <div class="feature-icon-box">
+            <span class="material-symbols-outlined">compare_arrows</span>
+          </div>
           <h3 class="feature-card-title">Branch & MR Comparison</h3>
           <p class="feature-card-desc">
             Compare your working branch against <code>main</code> or merge request targets before pushing upstream.
@@ -341,7 +202,9 @@
         </div>
 
         <div class="feature-card">
-          <div class="feature-icon-box">🎨</div>
+          <div class="feature-icon-box">
+            <span class="material-symbols-outlined">palette</span>
+          </div>
           <h3 class="feature-card-title">Dark, Light & Glass Themes</h3>
           <p class="feature-card-desc">
             Crafted with modern typography (Plus Jakarta Sans & JetBrains Mono) and native macOS vibrancy for long, fatigue-free review sessions.
@@ -419,10 +282,11 @@
       <div class="downloads-grid">
         <!-- macOS -->
         <div class="download-card">
-          <div class="download-card-os">🍎</div>
+          <span class="material-symbols-outlined download-card-os">desktop_mac</span>
           <h3 class="download-card-title">macOS</h3>
           <div class="download-card-meta">Universal Binary (Apple Silicon & Intel) • macOS 11+</div>
           <a href="https://github.com/yolandaihsan17/tengga/releases/latest" class="btn-card-download">
+            <span class="material-symbols-outlined">download</span>
             Download .dmg
           </a>
           <div class="download-card-sublinks">
@@ -432,10 +296,11 @@
 
         <!-- Windows -->
         <div class="download-card">
-          <div class="download-card-os">🪟</div>
+          <span class="material-symbols-outlined download-card-os">desktop_windows</span>
           <h3 class="download-card-title">Windows</h3>
           <div class="download-card-meta">64-bit Installer • Windows 10 & 11</div>
           <a href="https://github.com/yolandaihsan17/tengga/releases/latest" class="btn-card-download">
+            <span class="material-symbols-outlined">download</span>
             Download .msi / .exe
           </a>
           <div class="download-card-sublinks">
@@ -445,10 +310,11 @@
 
         <!-- Linux -->
         <div class="download-card">
-          <div class="download-card-os">🐧</div>
+          <span class="material-symbols-outlined download-card-os">terminal</span>
           <h3 class="download-card-title">Linux</h3>
           <div class="download-card-meta">Debian, Ubuntu, Fedora, Arch</div>
           <a href="https://github.com/yolandaihsan17/tengga/releases/latest" class="btn-card-download">
+            <span class="material-symbols-outlined">download</span>
             Download .deb / AppImage
           </a>
           <div class="download-card-sublinks">
