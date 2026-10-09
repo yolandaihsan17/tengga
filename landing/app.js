@@ -10,7 +10,7 @@ function detectUserOS() {
       osName: "macOS",
       label: "Download for macOS",
       sublabel: "Apple Silicon & Intel • .dmg (5.8 MB)",
-      url: "./downloads/Tengga.dmg",
+      url: "./downloads/Tengga.dmg?v=0.1.0",
       download: "Tengga.dmg"
     };
   } else if (/Win/i.test(platform) || /Windows/i.test(ua)) {
@@ -33,7 +33,7 @@ function detectUserOS() {
     osName: "All Platforms",
     label: "Download Tengga for macOS",
     sublabel: "macOS .dmg (5.8 MB)",
-    url: "./downloads/Tengga.dmg",
+    url: "./downloads/Tengga.dmg?v=0.1.0",
     download: "Tengga.dmg"
   };
 }
