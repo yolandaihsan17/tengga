@@ -9,30 +9,32 @@ function detectUserOS() {
     return {
       osName: "macOS",
       label: "Download for macOS",
-      sublabel: "Apple Silicon & Intel • .dmg",
-      url: "https://github.com/yolandaihsan17/tengga/releases/latest"
+      sublabel: "Apple Silicon & Intel • .dmg (5.8 MB)",
+      url: "./downloads/Tengga.dmg",
+      download: "Tengga.dmg"
     };
   } else if (/Win/i.test(platform) || /Windows/i.test(ua)) {
     return {
       osName: "Windows",
       label: "Download for Windows",
-      sublabel: "64-bit • .msi / .exe",
-      url: "https://github.com/yolandaihsan17/tengga/releases/latest"
+      sublabel: "64-bit • Coming Soon",
+      url: "https://github.com/yolandaihsan17/tengga"
     };
   } else if (/Linux/i.test(platform) || /Linux/i.test(ua)) {
     return {
       osName: "Linux",
       label: "Download for Linux",
-      sublabel: ".deb & .AppImage",
-      url: "https://github.com/yolandaihsan17/tengga/releases/latest"
+      sublabel: "Debian, Ubuntu • Coming Soon",
+      url: "https://github.com/yolandaihsan17/tengga"
     };
   }
 
   return {
     osName: "All Platforms",
-    label: "Download Tengga",
-    sublabel: "macOS, Windows, Linux",
-    url: "https://github.com/yolandaihsan17/tengga/releases/latest"
+    label: "Download Tengga for macOS",
+    sublabel: "macOS .dmg (5.8 MB)",
+    url: "./downloads/Tengga.dmg",
+    download: "Tengga.dmg"
   };
 }
 
@@ -120,7 +122,16 @@ document.addEventListener("DOMContentLoaded", () => {
       <span>${detected.label}</span>
     `;
     ctaBtn.onclick = () => {
-      window.open(detected.url, "_blank");
+      if (detected.download) {
+        const a = document.createElement("a");
+        a.href = detected.url;
+        a.download = detected.download;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } else {
+        window.open(detected.url, "_blank");
+      }
     };
   }
 
