@@ -129,9 +129,9 @@ a {
   text-decoration: none;
 }
 
-/* Material Symbols Outlined (Google Fonts Icons) */
-.material-symbols-outlined {
-  font-family: 'Material Symbols Outlined';
+/* Material Symbols Rounded (Google Fonts Icons) */
+.material-symbols-rounded {
+  font-family: 'Material Symbols Rounded';
   font-weight: normal;
   font-style: normal;
   font-size: 20px;
@@ -341,7 +341,7 @@ a {
   transition: all 0.15s ease;
 }
 
-.btn-primary-download .material-symbols-outlined {
+.btn-primary-download .material-symbols-rounded {
   font-size: 22px;
 }
 
@@ -363,7 +363,7 @@ a {
   justify-content: center;
 }
 
-.btn-download-dropdown-toggle .material-symbols-outlined {
+.btn-download-dropdown-toggle .material-symbols-rounded {
   font-size: 20px;
 }
 
@@ -408,7 +408,7 @@ a {
   background: var(--bg-hover);
 }
 
-.dropdown-item .icon.material-symbols-outlined {
+.dropdown-item .icon.material-symbols-rounded {
   font-size: 22px;
   color: var(--accent-emerald);
   display: flex;
@@ -525,7 +525,7 @@ a {
   margin-bottom: 20px;
 }
 
-.feature-icon-box .material-symbols-outlined {
+.feature-icon-box .material-symbols-rounded {
   font-size: 24px;
   color: var(--accent-emerald);
 }
@@ -616,7 +616,7 @@ a {
   box-shadow: 0 10px 30px var(--accent-glow);
 }
 
-.download-card-os.material-symbols-outlined {
+.download-card-os.material-symbols-rounded {
   font-size: 48px;
   color: var(--accent-emerald);
   margin-bottom: 16px;
@@ -652,7 +652,7 @@ a {
   margin-bottom: 12px;
 }
 
-.btn-card-download .material-symbols-outlined {
+.btn-card-download .material-symbols-rounded {
   font-size: 18px;
 }
 

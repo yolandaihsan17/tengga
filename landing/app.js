@@ -74,7 +74,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (ctaBtn) {
     ctaBtn.innerHTML = `
-      <span class="material-symbols-outlined">download</span>
+      <span class="material-symbols-rounded">download</span>
       <span>${detected.label}</span>
     `;
     ctaBtn.onclick = () => {
