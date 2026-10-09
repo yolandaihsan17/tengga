@@ -13,7 +13,7 @@
   [![Svelte](https://img.shields.io/badge/Svelte-v4.2-ff3e00?style=flat-square&logo=svelte)](https://svelte.dev/)
   [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
-  [**Website**](https://tengga.oan.workers.dev/) • [**Releases**](https://github.com/yolandaihsan17/tengga/releases) • [**Issues**](https://github.com/yolandaihsan17/tengga/issues)
+  [**Website**](https://tengga.oan.workers.dev/) • [**Releases**](https://github.com/yolandaihsan17/tengga/releases) • [**Connect with me**](https://www.linkedin.com/in/yolandaihsan/) • [**Issues**](https://github.com/yolandaihsan17/tengga/issues)
 </div>
 
 ---
@@ -181,5 +181,5 @@ Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for details.
 ---
 
 <div align="center">
-  Developed by <a href="https://github.com/yolandaihsan17"><strong>Yolanda Ihsan</strong></a>
+  Developed by <a href="https://github.com/yolandaihsan17"><strong>Yolanda Ihsan</strong></a> • <a href="https://www.linkedin.com/in/yolandaihsan/"><strong>Connect with me</strong></a>
 </div>
