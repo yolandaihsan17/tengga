@@ -24,7 +24,7 @@ Interactive staging via `git add -p` in the terminal provides precise control, b
 
 Tengga provides a focused desktop utility built specifically for the review and staging workflow:
 
-- **Minimal Memory Overhead**: Runs on approximately 30 MB idle RAM—10x to 20x lighter than Electron-based applications.
+- **Minimal Memory Overhead**: Operates under 80 MB RAM in typical usage—a fraction of resource-heavy Electron clients.
 - **Fast Cold Launch**: Starts in under 150 ms using native OS webview technologies and an optimized Rust backend.
 - **Compact Footprint**: Standalone binary under 15 MB with no bundled Chromium or Node.js runtime.
 - **Offline and Local**: Direct local Git execution and filesystem monitoring with zero network transmission.
@@ -59,7 +59,7 @@ Switch from Diff view to Content view to fix minor formatting or syntax issues d
 
 | Metric | Tengga (Tauri + Rust) | VS Code Git Diff | Heavy Electron Git GUI |
 | :--- | :--- | :--- | :--- |
-| **Idle Memory Footprint** | **~30 MB RAM** | ~300 MB – 600 MB | ~450 MB – 800 MB |
+| **Memory Footprint** | **< 80 MB RAM** | ~300 MB – 600 MB | ~450 MB – 800 MB |
 | **Cold Launch Time** | **< 150 ms** | 1.8 s – 3.2 s | 2.5 s – 4.5 s |
 | **Installer Binary Size** | **< 15 MB** | ~100 MB+ | ~120 MB – 180 MB |
 | **Dedicated Hunk Staging** | **Single-Click UI** | Nested file tree | Complex full-suite dashboard |
