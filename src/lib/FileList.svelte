@@ -73,8 +73,9 @@
   $: totalAdditions = files.reduce((acc, f) => acc + (f.additions || 0), 0);
   $: totalDeletions = files.reduce((acc, f) => acc + (f.deletions || 0), 0);
 
-  // In "changes" mode, only process modified files (saves heap & CPU on large repos)
-  $: sourcePaths = filterScope === "changes"
+  // In "changes" mode or when comparing against a base branch (MR view),
+  // only process modified files (saves heap & CPU on large repos)
+  $: sourcePaths = (filterScope === "changes" || baseBranch)
     ? files.map((f) => f.path)
     : Array.from(new Set([...repoFiles, ...files.map((f) => f.path)]));
   $: unifiedPaths = sourcePaths.sort();
@@ -179,9 +180,9 @@
     return true;
   });
 
-  $: stagedTreeData = buildTree(stagedFilteredPaths, diffMap, dirtyFiles);
-  $: unstagedTreeData = buildTree(unstagedFilteredPaths, diffMap, dirtyFiles);
-  $: treeData = filterScope === "all" ? buildTree(filteredPaths, diffMap, dirtyFiles) : [];
+  $: stagedTreeData = (!baseBranch && filterScope === "changes") ? buildTree(stagedFilteredPaths, diffMap, dirtyFiles) : [];
+  $: unstagedTreeData = (!baseBranch && filterScope === "changes") ? buildTree(unstagedFilteredPaths, diffMap, dirtyFiles) : [];
+  $: treeData = (filterScope === "all" || Boolean(baseBranch)) ? buildTree(filteredPaths, diffMap, dirtyFiles) : [];
 
   function buildTree(paths, diffs, dirtySet) {
     const root = { name: "", type: "folder", children: {}, path: "", additions: 0, deletions: 0, hasChanges: false };
