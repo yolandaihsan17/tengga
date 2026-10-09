@@ -1,4 +1,4 @@
-// Tengga Landing Page Logic
+// Tengga Landing Page Logic - Slack-style Layout
 
 // 1. OS Detection for Smart Download CTA
 function detectUserOS() {
@@ -62,10 +62,52 @@ function setTheme(theme) {
   });
 }
 
-// 3. Init Event Listeners
+// 3. Interactive Hero Preview Card Toggle
+function initHeroPreviewInteractive() {
+  const stageBtn = document.getElementById("hero-preview-stage-btn");
+  const badge = document.getElementById("hero-preview-badge");
+  const card = document.getElementById("hero-preview-card");
+
+  if (!stageBtn || !badge) return;
+
+  let isStaged = false;
+  stageBtn.addEventListener("click", () => {
+    isStaged = !isStaged;
+    if (isStaged) {
+      badge.textContent = "STAGED";
+      badge.classList.remove("unstaged");
+      badge.classList.add("staged");
+      stageBtn.textContent = "Unstage";
+      stageBtn.classList.remove("btn-accept");
+      stageBtn.classList.add("btn-reject");
+      if (card) card.classList.add("is-staged");
+    } else {
+      badge.textContent = "UNSTAGED";
+      badge.classList.remove("staged");
+      badge.classList.add("unstaged");
+      stageBtn.textContent = "Stage";
+      stageBtn.classList.add("btn-accept");
+      stageBtn.classList.remove("btn-reject");
+      if (card) card.classList.remove("is-staged");
+    }
+  });
+
+  const revertBtn = document.getElementById("hero-preview-revert-btn");
+  if (revertBtn) {
+    revertBtn.addEventListener("click", () => {
+      const originalText = revertBtn.textContent;
+      revertBtn.textContent = "Reverted!";
+      setTimeout(() => {
+        revertBtn.textContent = originalText;
+      }, 1200);
+    });
+  }
+}
+
+// 4. Init Event Listeners
 document.addEventListener("DOMContentLoaded", () => {
-  // Setup Theme
   initTheme();
+  initHeroPreviewInteractive();
 
   // Setup OS Download CTA
   const detected = detectUserOS();
