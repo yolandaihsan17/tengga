@@ -18,6 +18,8 @@
   export let onUnstageFile = null;
   export let onDiscardFile = null;
   export let disabled = false;
+  export let targetLine = null;
+  export let targetQuery = null;
 
   let activeView = "diff"; // "diff" | "content"
   let editedContent = "";
@@ -74,11 +76,14 @@
   $: hasHunks = file && file.hunks && file.hunks.length > 0;
   $: pathSegments = file ? file.path.split("/") : [];
 
-  // When selected file changes, synchronize content & dirty status
+  let prevTargetLine = null;
+  let prevTargetQuery = null;
+
+  // Synchronize file changes, dirty status, and navigation targets
   $: {
     if (file && file.path !== prevFile) {
       prevFile = file.path;
-      activeView = hasHunks ? "diff" : "content";
+      activeView = (targetLine || !hasHunks) ? "content" : "diff";
       if (initialContent !== null && initialContent !== undefined) {
         editedContent = initialContent;
         isDirty = editedContent !== (fileContent !== null ? fileContent : "");
@@ -86,10 +91,34 @@
         editedContent = fileContent !== null ? fileContent : "";
         isDirty = false;
       }
-      isFindOpen = false;
-      matches = [];
+      if (isFindOpen && findQuery) {
+        runSearch(findQuery, findCaseSensitive, { shouldScroll: !targetLine });
+      } else {
+        matches = [];
+        matchIndex = 0;
+      }
+      if (targetLine) {
+        prevTargetLine = targetLine;
+        setTimeout(() => jumpToLine(targetLine), 30);
+      }
     } else if (!isDirty && fileContent !== null && editedContent !== fileContent) {
       editedContent = fileContent;
+      if (isFindOpen && findQuery) {
+        runSearch(findQuery, findCaseSensitive, { shouldScroll: false });
+      }
+    }
+
+    if (targetLine && targetLine !== prevTargetLine) {
+      prevTargetLine = targetLine;
+      activeView = "content";
+      setTimeout(() => jumpToLine(targetLine), 30);
+    }
+
+    if (targetQuery && targetQuery !== prevTargetQuery) {
+      prevTargetQuery = targetQuery;
+      isFindOpen = true;
+      findQuery = targetQuery;
+      runSearch(targetQuery, findCaseSensitive, { shouldScroll: !targetLine });
     }
   }
 
@@ -244,7 +273,7 @@
       onBufferChange(file.path, editedContent, isDirty);
     }
     if (isFindOpen && findQuery) {
-      runSearch(findQuery, findCaseSensitive);
+      runSearch(findQuery, findCaseSensitive, { shouldScroll: false });
     }
   }
 
@@ -278,7 +307,20 @@
     }
   }
 
-  function runSearch(query, caseSens) {
+  function jumpToLine(lineNumber) {
+    if (!textareaEl || lineNumber < 1) return;
+    activeView = "content";
+    const lineIndex = lineNumber - 1;
+    const lineHeight = 19;
+    const targetY = lineIndex * lineHeight;
+
+    const visibleHeight = textareaEl.clientHeight;
+    textareaEl.scrollTop = Math.max(0, targetY - Math.floor(visibleHeight / 3));
+    syncScroll();
+  }
+
+  function runSearch(query, caseSens, options = {}) {
+    const { shouldScroll = true } = options;
     findQuery = query;
     findCaseSensitive = caseSens;
     if (!query) {
@@ -297,7 +339,9 @@
     matches = found;
     if (matches.length > 0) {
       matchIndex = Math.min(matchIndex, matches.length - 1);
-      scrollToMatch(matchIndex, false);
+      if (shouldScroll) {
+        scrollToMatch(matchIndex);
+      }
     } else {
       matchIndex = 0;
     }
@@ -306,22 +350,18 @@
   function handleNextMatch() {
     if (matches.length === 0) return;
     matchIndex = (matchIndex + 1) % matches.length;
-    scrollToMatch(matchIndex, false);
+    scrollToMatch(matchIndex);
   }
 
   function handlePrevMatch() {
     if (matches.length === 0) return;
     matchIndex = (matchIndex - 1 + matches.length) % matches.length;
-    scrollToMatch(matchIndex, false);
+    scrollToMatch(matchIndex);
   }
 
-  function scrollToMatch(idx, focusEditor = false) {
+  function scrollToMatch(idx) {
     if (matches.length === 0 || !matches[idx] || !textareaEl) return;
-    const { start, end } = matches[idx];
-    if (focusEditor) {
-      textareaEl.focus();
-    }
-    textareaEl.setSelectionRange(start, end);
+    const { start } = matches[idx];
 
     const beforeMatch = editedContent.substring(0, start);
     const lineIndex = beforeMatch.split("\n").length - 1;
@@ -343,7 +383,7 @@
     if (onBufferChange && file) {
       onBufferChange(file.path, editedContent, isDirty);
     }
-    runSearch(findQuery, findCaseSensitive);
+    runSearch(findQuery, findCaseSensitive, { shouldScroll: true });
   }
 
   function handleReplaceAll(newText) {
@@ -355,7 +395,7 @@
     if (onBufferChange && file) {
       onBufferChange(file.path, editedContent, isDirty);
     }
-    runSearch(findQuery, findCaseSensitive);
+    runSearch(findQuery, findCaseSensitive, { shouldScroll: false });
   }
 
   function handleCloseFind() {

@@ -106,3 +106,40 @@ export async function setWindowBlurIntensity(intensity) {
     console.warn("Could not set blur intensity:", e);
   }
 }
+
+export async function searchRepoContent(repoPath, query, options = {}) {
+  const {
+    caseSensitive = false,
+    matchWholeWord = false,
+    useRegex = false,
+    filePattern = null,
+    maxResults = 500,
+  } = options;
+
+  return invoke("search_repo_content", {
+    repoPath,
+    query,
+    caseSensitive,
+    matchWholeWord,
+    useRegex,
+    filePattern,
+    maxResults,
+  });
+}
+
+export async function startDragWindow() {
+  try {
+    await invoke("start_drag_window");
+  } catch (e) {
+    console.warn("Could not start drag window:", e);
+  }
+}
+
+export async function toggleMaximizeWindow() {
+  try {
+    await invoke("toggle_maximize_window");
+  } catch (e) {
+    console.warn("Could not toggle maximize window:", e);
+  }
+}
+

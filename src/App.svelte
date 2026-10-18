@@ -42,6 +42,15 @@
     glassBlur: 0.30,
   };
 
+  const DEFAULT_SIDEBAR_WIDTH = 320;
+  const MIN_SIDEBAR_WIDTH = 220;
+  const MAX_SIDEBAR_WIDTH = 650;
+
+  let sidebarWidth = DEFAULT_SIDEBAR_WIDTH;
+  let isResizing = false;
+  let activeResizeCleanup = null;
+  const isMac = typeof navigator !== "undefined" && /(Mac|iPhone|iPod|iPad)/i.test(navigator.userAgent || "");
+
   let settings = { ...DEFAULT_SETTINGS };
   let isSettingsOpen = false;
   let currentTheme = "dark";
@@ -61,6 +70,14 @@
           settings.theme = legacyTheme;
         } else {
           settings.theme = "dark";
+        }
+      }
+
+      const savedWidth = localStorage.getItem("tengga_sidebar_width");
+      if (savedWidth) {
+        const parsed = parseInt(savedWidth, 10);
+        if (!isNaN(parsed) && parsed >= MIN_SIDEBAR_WIDTH && parsed <= MAX_SIDEBAR_WIDTH) {
+          sidebarWidth = parsed;
         }
       }
     } catch (e) {}
@@ -88,6 +105,64 @@
       setWindowBlurIntensity(blurVal);
     } else {
       setWindowBlurIntensity(0.0);
+    }
+  }
+
+  function startResize(e) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    isResizing = true;
+    const startX = e.clientX;
+    const startWidth = sidebarWidth;
+
+    function onMouseMove(moveEvent) {
+      const delta = moveEvent.clientX - startX;
+      const targetMax = Math.max(MIN_SIDEBAR_WIDTH, Math.min(MAX_SIDEBAR_WIDTH, window.innerWidth - 320));
+      const newWidth = Math.min(Math.max(startWidth + delta, MIN_SIDEBAR_WIDTH), targetMax);
+      sidebarWidth = newWidth;
+    }
+
+    function onMouseUp() {
+      if (activeResizeCleanup) {
+        activeResizeCleanup();
+      }
+      try {
+        localStorage.setItem("tengga_sidebar_width", String(sidebarWidth));
+      } catch (err) {}
+    }
+
+    activeResizeCleanup = () => {
+      isResizing = false;
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      activeResizeCleanup = null;
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  }
+
+  function resetSidebarWidth() {
+    sidebarWidth = DEFAULT_SIDEBAR_WIDTH;
+    try {
+      localStorage.setItem("tengga_sidebar_width", String(sidebarWidth));
+    } catch (err) {}
+  }
+
+  function handleResizerKeydown(e) {
+    if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      sidebarWidth = Math.max(MIN_SIDEBAR_WIDTH, sidebarWidth - 10);
+      try {
+        localStorage.setItem("tengga_sidebar_width", String(sidebarWidth));
+      } catch (err) {}
+    } else if (e.key === "ArrowRight") {
+      e.preventDefault();
+      const targetMax = Math.max(MIN_SIDEBAR_WIDTH, Math.min(MAX_SIDEBAR_WIDTH, window.innerWidth - 320));
+      sidebarWidth = Math.min(targetMax, sidebarWidth + 10);
+      try {
+        localStorage.setItem("tengga_sidebar_width", String(sidebarWidth));
+      } catch (err) {}
     }
   }
 
@@ -128,6 +203,9 @@
   let repoFiles = [];
   let isAllFilesRequested = false;
   let selectedFile = null;
+  let targetLine = null;
+  let targetQuery = null;
+  let fileListRef = null;
   let error = null;
   let unlisten = null;
   let isRefreshing = false;
@@ -135,6 +213,12 @@
   let fileContent = null;
   let isLoadingContent = false;
   let contentError = null;
+
+  function handleSelectFile(filePath, lineNumber = null, query = null) {
+    selectedFile = filePath;
+    targetLine = lineNumber;
+    targetQuery = query;
+  }
 
   $: isGitOperating = Boolean(pullingBranch || pushingBranch || isSwitchingBranch);
   $: gitOperationLabel = pullingBranch
@@ -862,6 +946,15 @@
       }
       return;
     }
+
+    // Global Search: Cmd + Shift + F
+    if (isModifier && e.shiftKey && (e.code === "KeyF" || e.key.toLowerCase() === "f")) {
+      e.preventDefault();
+      if (fileListRef) {
+        fileListRef.focusSearch();
+      }
+      return;
+    }
   }
 
   onMount(async () => {
@@ -886,6 +979,7 @@
   onDestroy(() => {
     if (unlisten) unlisten();
     if (unlistenWorktrees) unlistenWorktrees();
+    if (activeResizeCleanup) activeResizeCleanup();
     if (typeof window !== "undefined") {
       window.removeEventListener("focus", handleWindowFocus);
     }
@@ -896,7 +990,7 @@
 
 <main>
   <!-- Top Navigation Bar -->
-  <header class="app-topbar">
+  <header class="app-topbar" class:is-mac={isMac} data-tauri-drag-region="deep">
     <div class="brand-cluster">
       {#if repoName}
         <div class="repo-brand-title" title={repoPath}>
@@ -1219,9 +1313,14 @@
   {/if}
 
   <!-- Split Main Workspace -->
-  <div class="workspace-body">
-    <aside class="sidebar-panel">
+  <div class="workspace-body" class:is-resizing={isResizing}>
+    <aside
+      class="sidebar-panel"
+      style="width: {sidebarWidth}px; min-width: {MIN_SIDEBAR_WIDTH}px; max-width: {MAX_SIDEBAR_WIDTH}px;"
+    >
       <FileList
+        bind:this={fileListRef}
+        {repoPath}
         {files}
         {repoFiles}
         {selectedFile}
@@ -1232,7 +1331,7 @@
         {currentTheme}
         disabled={isGitOperating}
         onThemeChange={(t) => handleSaveSettings({ ...settings, theme: t })}
-        onSelect={(p) => (selectedFile = p)}
+        onSelect={handleSelectFile}
         onStage={handleStage}
         onUnstage={handleUnstage}
         onDiscard={handleDiscard}
@@ -1242,6 +1341,23 @@
         onRequestRepoFiles={handleRequestRepoFiles}
       />
     </aside>
+    <!-- svelte-ignore a11y-no-noninteractive-element-interactions a11y-no-noninteractive-tabindex -->
+    <div
+      class="sidebar-resizer"
+      class:active={isResizing}
+      on:mousedown={startResize}
+      on:dblclick={resetSidebarWidth}
+      on:keydown={handleResizerKeydown}
+      role="separator"
+      tabindex="0"
+      aria-orientation="vertical"
+      aria-valuenow={sidebarWidth}
+      aria-valuemin={MIN_SIDEBAR_WIDTH}
+      aria-valuemax={MAX_SIDEBAR_WIDTH}
+      title="Geser untuk mengatur lebar sidebar, klik ganda untuk reset"
+    >
+      <div class="resizer-line"></div>
+    </div>
     <section class="diff-panel">
       <DiffView
         file={currentFile}
@@ -1250,6 +1366,8 @@
         {isLoadingContent}
         {contentError}
         {baseBranch}
+        {targetLine}
+        {targetQuery}
         disabled={isGitOperating}
         onAccept={handleAccept}
         onReject={handleReject}
@@ -1308,6 +1426,10 @@
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
     backdrop-filter: var(--backdrop-filter, blur(24px));
     -webkit-backdrop-filter: var(--backdrop-filter, blur(24px));
+  }
+
+  .app-topbar.is-mac {
+    padding-left: 80px;
   }
 
   .brand-cluster {
@@ -1968,8 +2090,21 @@
     background: transparent;
   }
 
+  .workspace-body.is-resizing {
+    user-select: none !important;
+    cursor: col-resize !important;
+  }
+
+  .workspace-body.is-resizing * {
+    user-select: none !important;
+    pointer-events: none !important;
+  }
+
+  .workspace-body.is-resizing .sidebar-resizer {
+    pointer-events: auto !important;
+  }
+
   .sidebar-panel {
-    width: 320px;
     border-right: none;
     flex-shrink: 0;
     display: flex;
@@ -1977,10 +2112,60 @@
     background: var(--bg-sidebar);
     backdrop-filter: var(--backdrop-filter, blur(24px));
     -webkit-backdrop-filter: var(--backdrop-filter, blur(24px));
+    overflow: hidden;
+  }
+
+  .sidebar-resizer {
+    position: relative;
+    width: 6px;
+    margin-left: -3px;
+    margin-right: -3px;
+    z-index: 20;
+    cursor: col-resize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    flex-shrink: 0;
+    outline: none;
+    transition: background 0.15s ease;
+  }
+
+  .sidebar-resizer::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -3px;
+    right: -3px;
+    z-index: 1;
+  }
+
+  .resizer-line {
+    width: 1px;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.08);
+    transition: background 0.15s ease, width 0.15s ease;
+  }
+
+  :global([data-theme="light"]) .resizer-line {
+    background: rgba(0, 0, 0, 0.08);
+  }
+
+  .sidebar-resizer:hover .resizer-line,
+  .sidebar-resizer.active .resizer-line,
+  .sidebar-resizer:focus-visible .resizer-line {
+    background: var(--accent-emerald);
+    width: 2px;
+  }
+
+  .sidebar-resizer.active {
+    background: var(--accent-emerald-soft);
   }
 
   .diff-panel {
     flex: 1;
+    min-width: 0;
     overflow: hidden;
     display: flex;
     flex-direction: column;

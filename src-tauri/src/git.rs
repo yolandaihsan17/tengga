@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
@@ -512,6 +512,126 @@ fn run_git(repo: &Path, args: &[&str]) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct SearchMatch {
+    pub file: String,
+    pub line: usize,
+    pub content: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct SearchResult {
+    pub matches: Vec<SearchMatch>,
+    pub total_count: usize,
+    pub truncated: bool,
+}
+
+pub fn search_in_repo(
+    repo: &Path,
+    query: &str,
+    case_sensitive: bool,
+    match_whole_word: bool,
+    use_regex: bool,
+    file_pattern: Option<&str>,
+    max_results: usize,
+) -> Result<SearchResult, String> {
+    let trimmed_query = query.trim();
+    if trimmed_query.is_empty() {
+        return Ok(SearchResult {
+            matches: Vec::new(),
+            total_count: 0,
+            truncated: false,
+        });
+    }
+
+    let mut cmd = Command::new("git");
+    cmd.args(["grep", "--null", "-n", "-I", "--untracked"]);
+
+    if !case_sensitive {
+        cmd.arg("-i");
+    }
+    if match_whole_word {
+        cmd.arg("-w");
+    }
+    if use_regex {
+        cmd.arg("-E");
+    } else {
+        cmd.arg("-F");
+    }
+
+    cmd.arg("-e").arg(query);
+    cmd.arg("--");
+
+    if let Some(pattern) = file_pattern {
+        let pat = pattern.trim();
+        if !pat.is_empty() {
+            for p in pat.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()) {
+                cmd.arg(p);
+            }
+        }
+    }
+
+    cmd.current_dir(repo);
+    cmd.stdout(Stdio::piped());
+    cmd.stderr(Stdio::piped());
+
+    let mut child = cmd.spawn().map_err(|e| format!("Failed to spawn git grep: {}", e))?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| "Failed to capture stdout from git grep".to_string())?;
+
+    let reader = BufReader::new(stdout);
+    let mut matches = Vec::new();
+    let mut truncated = false;
+
+    for line_res in reader.lines() {
+        let line = match line_res {
+            Ok(l) => l,
+            Err(_) => continue,
+        };
+
+        // git grep --null -n produces:
+        // <file>\0<line>\0<content>
+        let parts: Vec<&str> = line.split('\0').collect();
+        if parts.len() >= 3 {
+            let file = parts[0].to_string();
+            let line_num = parts[1].parse::<usize>().unwrap_or(1);
+            let content = parts[2..].join("\0");
+            matches.push(SearchMatch {
+                file,
+                line: line_num,
+                content,
+            });
+
+            if matches.len() >= max_results {
+                truncated = true;
+                let _ = child.kill();
+                break;
+            }
+        }
+    }
+
+    let status = child.wait().map_err(|e| e.to_string())?;
+    if !status.success() && status.code() != Some(1) && !truncated {
+        let mut stderr_str = String::new();
+        if let Some(mut err_stream) = child.stderr.take() {
+            let _ = std::io::Read::read_to_string(&mut err_stream, &mut stderr_str);
+        }
+        let err_trimmed = stderr_str.trim();
+        if !err_trimmed.is_empty() {
+            return Err(err_trimmed.to_string());
+        }
+    }
+
+    let total_count = matches.len();
+    Ok(SearchResult {
+        matches,
+        total_count,
+        truncated,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -649,6 +769,18 @@ mod tests {
         assert_eq!(content, "hello world\n");
 
         let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_search_in_repo() {
+        let repo_dir = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+        let res = search_in_repo(repo_dir, "FindReplace", false, false, false, None, 50)
+            .expect("search_in_repo should succeed");
+        assert!(!res.matches.is_empty(), "should find matches for FindReplace");
+        let first = &res.matches[0];
+        assert!(!first.file.is_empty());
+        assert!(first.line > 0);
+        assert!(first.content.contains("FindReplace"));
     }
 }
 

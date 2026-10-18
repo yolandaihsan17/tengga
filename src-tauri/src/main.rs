@@ -253,6 +253,32 @@ async fn push_branch(repo_path: String, branch: String) -> Result<String, String
 }
 
 #[tauri::command]
+async fn search_repo_content(
+    repo_path: String,
+    query: String,
+    case_sensitive: bool,
+    match_whole_word: bool,
+    use_regex: bool,
+    file_pattern: Option<String>,
+    max_results: Option<usize>,
+) -> Result<git::SearchResult, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let repo = PathBuf::from(repo_path);
+        git::search_in_repo(
+            &repo,
+            &query,
+            case_sensitive,
+            match_whole_word,
+            use_regex,
+            file_pattern.as_deref(),
+            max_results.unwrap_or(500),
+        )
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
 async fn stage_file(repo_path: String, file_path: String) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         git::stage_file(&PathBuf::from(repo_path), &file_path)
@@ -454,6 +480,38 @@ fn set_window_blur_intensity(app: tauri::AppHandle, intensity: f64) -> Result<()
     Ok(())
 }
 
+#[tauri::command]
+fn start_drag_window(window: tauri::WebviewWindow) -> Result<(), String> {
+    window.start_dragging().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn toggle_maximize_window(window: tauri::WebviewWindow) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        if let Ok(ns_win) = window.ns_window() {
+            unsafe {
+                type MsgSend1 = unsafe extern "C" fn(*mut std::ffi::c_void, *mut std::ffi::c_void, *mut std::ffi::c_void);
+                extern "C" {
+                    fn sel_registerName(name: *const std::os::raw::c_char) -> *mut std::ffi::c_void;
+                    fn objc_msgSend();
+                }
+                let msg_send1: MsgSend1 = std::mem::transmute(objc_msgSend as *const ());
+                let sel_zoom = sel_registerName(b"zoom:\0".as_ptr() as _);
+                msg_send1(ns_win as _, sel_zoom, std::ptr::null_mut());
+                return Ok(());
+            }
+        }
+    }
+
+    let is_max = window.is_maximized().map_err(|e| e.to_string())?;
+    if is_max {
+        window.unmaximize().map_err(|e| e.to_string())?;
+    } else {
+        window.maximize().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
 
 fn main() {
     tauri::Builder::default()
@@ -498,7 +556,10 @@ fn main() {
             unstage_all,
             discard_all,
             get_worktrees,
-            set_window_blur_intensity
+            set_window_blur_intensity,
+            search_repo_content,
+            start_drag_window,
+            toggle_maximize_window
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

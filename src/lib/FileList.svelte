@@ -1,6 +1,8 @@
 <script>
   import FileTreeNode from "./FileTreeNode.svelte";
+  import { searchRepoContent } from "./api.js";
 
+  export let repoPath = null;
   export let files = [];       // Modified files from get_diff: { path, additions, deletions, hunks, is_binary }
   export let repoFiles = [];   // All files in repo: ["src/index.js", "README.md", ...]
   export let selectedFile = null;
@@ -23,17 +25,215 @@
   let isStagedExpanded = true;
   let isUnstagedExpanded = true;
 
-  let filterScope = "changes";    // "changes" (default, lightweight) | "all"
+  let filterScope = "changes";    // "changes" (default, lightweight) | "all" | "search"
   let searchQuery = "";
   let expandedAllFolders = {};
   let expandedChangesFolders = {};
   let prevFiles = null;
   let prevRepoFiles = null;
 
+  // Global Search state across repository
+  let globalQuery = "";
+  let globalCaseSensitive = false;
+  let globalMatchWholeWord = false;
+  let globalUseRegex = false;
+  let globalFilePattern = "";
+  let showPatternInput = false;
+  let isSearching = false;
+  let searchError = null;
+  let searchResults = { matches: [], total_count: 0, truncated: false };
+  let expandedSearchFiles = {};
+  let searchInputEl = null;
+
+  export function focusSearch(initialQuery = "") {
+    filterScope = "search";
+    if (initialQuery) {
+      globalQuery = initialQuery;
+      runGlobalSearch();
+    }
+    setTimeout(() => {
+      if (searchInputEl) {
+        searchInputEl.focus();
+        searchInputEl.select();
+      }
+    }, 25);
+  }
+
   function handleScopeChange(newScope) {
     filterScope = newScope;
     if (newScope === "all" && (!repoFiles || repoFiles.length === 0)) {
       onRequestRepoFiles();
+    }
+    if (newScope === "search") {
+      setTimeout(() => {
+        if (searchInputEl) {
+          searchInputEl.focus();
+        }
+      }, 25);
+    }
+  }
+
+  async function runGlobalSearch() {
+    if (!repoPath || !globalQuery || !globalQuery.trim()) {
+      searchResults = { matches: [], total_count: 0, truncated: false };
+      searchError = null;
+      isSearching = false;
+      return;
+    }
+
+    isSearching = true;
+    searchError = null;
+    try {
+      const res = await searchRepoContent(repoPath, globalQuery, {
+        caseSensitive: globalCaseSensitive,
+        matchWholeWord: globalMatchWholeWord,
+        useRegex: globalUseRegex,
+        filePattern: globalFilePattern || null,
+        maxResults: 500,
+      });
+      searchResults = res;
+      const nextExp = {};
+      for (const m of res.matches) {
+        nextExp[m.file] = true;
+      }
+      expandedSearchFiles = nextExp;
+    } catch (err) {
+      searchError = String(err);
+      searchResults = { matches: [], total_count: 0, truncated: false };
+    } finally {
+      isSearching = false;
+    }
+  }
+
+  function toggleCaseSensitive() {
+    globalCaseSensitive = !globalCaseSensitive;
+    if (globalQuery && (searchResults.total_count > 0 || searchResults.matches.length > 0)) {
+      runGlobalSearch();
+    }
+  }
+
+  function toggleMatchWholeWord() {
+    globalMatchWholeWord = !globalMatchWholeWord;
+    if (globalQuery && (searchResults.total_count > 0 || searchResults.matches.length > 0)) {
+      runGlobalSearch();
+    }
+  }
+
+  function toggleUseRegex() {
+    globalUseRegex = !globalUseRegex;
+    if (globalQuery && (searchResults.total_count > 0 || searchResults.matches.length > 0)) {
+      runGlobalSearch();
+    }
+  }
+
+  function handleSearchInput(e) {
+    globalQuery = e.target.value;
+    if (!globalQuery.trim()) {
+      searchResults = { matches: [], total_count: 0, truncated: false };
+      searchError = null;
+    }
+  }
+
+  function handlePatternInput(e) {
+    globalFilePattern = e.target.value;
+  }
+
+  function handleSearchKeydown(e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      runGlobalSearch();
+    } else if (e.key === "Escape") {
+      if (globalQuery) {
+        globalQuery = "";
+        searchResults = { matches: [], total_count: 0, truncated: false };
+        searchError = null;
+      }
+    }
+  }
+
+  function toggleSearchFile(file) {
+    expandedSearchFiles[file] = !expandedSearchFiles[file];
+    expandedSearchFiles = { ...expandedSearchFiles };
+  }
+
+  function collapseAllSearchFiles() {
+    expandedSearchFiles = {};
+  }
+
+  function expandAllSearchFiles() {
+    const next = {};
+    for (const group of groupedSearchResults) {
+      next[group.file] = true;
+    }
+    expandedSearchFiles = next;
+  }
+
+  function handleSelectSearchMatch(filePath, lineNumber, query) {
+    if (onSelect) {
+      onSelect(filePath, lineNumber, query);
+    }
+  }
+
+  $: groupedSearchResults = (() => {
+    if (!searchResults.matches || searchResults.matches.length === 0) return [];
+    const map = new Map();
+    for (const match of searchResults.matches) {
+      if (!map.has(match.file)) {
+        map.set(match.file, []);
+      }
+      map.get(match.file).push(match);
+    }
+    const list = [];
+    for (const [file, fileMatches] of map.entries()) {
+      const parts = file.split("/");
+      const fileName = parts.pop();
+      const folderPath = parts.join("/");
+      list.push({
+        file,
+        fileName,
+        folderPath,
+        matches: fileMatches,
+      });
+    }
+    return list;
+  })();
+
+  $: totalMatchedFiles = groupedSearchResults.length;
+  $: totalMatchedCount = searchResults.total_count;
+
+  function escapeHtml(text) {
+    return (text || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  function highlightSnippet(content, query, caseSens, isRegex) {
+    if (!content) return "";
+    const trimmed = content.trimEnd();
+    if (!query || !query.trim()) return escapeHtml(trimmed);
+
+    try {
+      let regex;
+      if (isRegex) {
+        regex = new RegExp(`(${query})`, caseSens ? "g" : "gi");
+      } else {
+        const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        regex = new RegExp(`(${escaped})`, caseSens ? "g" : "gi");
+      }
+      const parts = trimmed.split(regex);
+      return parts
+        .map((part) => {
+          if (!part) return "";
+          const isMatch = caseSens ? part === query : part.toLowerCase() === query.toLowerCase();
+          if (isMatch) {
+            return `<mark class="search-snippet-match">${escapeHtml(part)}</mark>`;
+          }
+          return escapeHtml(part);
+        })
+        .join("");
+    } catch {
+      return escapeHtml(trimmed);
     }
   }
 
@@ -275,73 +475,266 @@
           class:active={filterScope === "all"}
           on:click={() => handleScopeChange("all")}
         >
-          All Files
+          Files
+        </button>
+        <button
+          class="seg-btn"
+          class:active={filterScope === "search"}
+          on:click={() => handleScopeChange("search")}
+        >
+          Search
         </button>
       </div>
 
-      <div class="tree-controls">
-        <button
-          class="tree-control-btn"
-          on:click={expandAll}
-          title="Uncollapse all folders (Expand All)"
-        >
-          <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor">
-            <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3.086a1.5 1.5 0 0 1 1.06.44l1.354 1.353a.5.5 0 0 0 .354.147h5.146A1.5 1.5 0 0 1 15 4.44v1.56h-1.5V4.44a.25.25 0 0 0-.25-.25H8.354a2 2 0 0 1-1.415-.586L5.586 2.25H2.5a.25.25 0 0 0-.25.25V5.5H1v-3z"/>
-            <path d="M8 8a.75.75 0 0 1 .75.75v2h2a.75.75 0 0 1 0 1.5h-2v2a.75.75 0 0 1-1.5 0v-2h-2a.75.75 0 0 1 0-1.5h2v-2A.75.75 0 0 1 8 8z"/>
-          </svg>
-        </button>
-        <button
-          class="tree-control-btn"
-          on:click={collapseAll}
-          title="Collapse all folders"
-        >
-          <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor">
-            <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3.086a1.5 1.5 0 0 1 1.06.44l1.354 1.353a.5.5 0 0 0 .354.147h5.146A1.5 1.5 0 0 1 15 4.44v1.56h-1.5V4.44a.25.25 0 0 0-.25-.25H8.354a2 2 0 0 1-1.415-.586L5.586 2.25H2.5a.25.25 0 0 0-.25.25V5.5H1v-3z"/>
-            <path d="M5.5 10.25a.75.75 0 0 1 .75-.75h5a.75.75 0 0 1 0 1.5h-5a.75.75 0 0 1-.75-.75z"/>
-          </svg>
-        </button>
-      </div>
+      {#if filterScope === "search"}
+        <div class="tree-controls">
+          <button
+            class="tree-control-btn"
+            on:click={expandAllSearchFiles}
+            title="Expand All Files"
+          >
+            <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor">
+              <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3.086a1.5 1.5 0 0 1 1.06.44l1.354 1.353a.5.5 0 0 0 .354.147h5.146A1.5 1.5 0 0 1 15 4.44v1.56h-1.5V4.44a.25.25 0 0 0-.25-.25H8.354a2 2 0 0 1-1.415-.586L5.586 2.25H2.5a.25.25 0 0 0-.25.25V5.5H1v-3z"/>
+              <path d="M8 8a.75.75 0 0 1 .75.75v2h2a.75.75 0 0 1 0 1.5h-2v2a.75.75 0 0 1-1.5 0v-2h-2a.75.75 0 0 1 0-1.5h2v-2A.75.75 0 0 1 8 8z"/>
+            </svg>
+          </button>
+          <button
+            class="tree-control-btn"
+            on:click={collapseAllSearchFiles}
+            title="Collapse All Files"
+          >
+            <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor">
+              <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3.086a1.5 1.5 0 0 1 1.06.44l1.354 1.353a.5.5 0 0 0 .354.147h5.146A1.5 1.5 0 0 1 15 4.44v1.56h-1.5V4.44a.25.25 0 0 0-.25-.25H8.354a2 2 0 0 1-1.415-.586L5.586 2.25H2.5a.25.25 0 0 0-.25.25V5.5H1v-3z"/>
+              <path d="M5.5 10.25a.75.75 0 0 1 .75-.75h5a.75.75 0 0 1 0 1.5h-5a.75.75 0 0 1-.75-.75z"/>
+            </svg>
+          </button>
+        </div>
+      {:else}
+        <div class="tree-controls">
+          <button
+            class="tree-control-btn"
+            on:click={expandAll}
+            title="Uncollapse all folders (Expand All)"
+          >
+            <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor">
+              <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3.086a1.5 1.5 0 0 1 1.06.44l1.354 1.353a.5.5 0 0 0 .354.147h5.146A1.5 1.5 0 0 1 15 4.44v1.56h-1.5V4.44a.25.25 0 0 0-.25-.25H8.354a2 2 0 0 1-1.415-.586L5.586 2.25H2.5a.25.25 0 0 0-.25.25V5.5H1v-3z"/>
+              <path d="M8 8a.75.75 0 0 1 .75.75v2h2a.75.75 0 0 1 0 1.5h-2v2a.75.75 0 0 1-1.5 0v-2h-2a.75.75 0 0 1 0-1.5h2v-2A.75.75 0 0 1 8 8z"/>
+            </svg>
+          </button>
+          <button
+            class="tree-control-btn"
+            on:click={collapseAll}
+            title="Collapse all folders"
+          >
+            <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor">
+              <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3.086a1.5 1.5 0 0 1 1.06.44l1.354 1.353a.5.5 0 0 0 .354.147h5.146A1.5 1.5 0 0 1 15 4.44v1.56h-1.5V4.44a.25.25 0 0 0-.25-.25H8.354a2 2 0 0 1-1.415-.586L5.586 2.25H2.5a.25.25 0 0 0-.25.25V5.5H1v-3z"/>
+              <path d="M5.5 10.25a.75.75 0 0 1 .75-.75h5a.75.75 0 0 1 0 1.5h-5a.75.75 0 0 1-.75-.75z"/>
+            </svg>
+          </button>
+        </div>
+      {/if}
     </div>
 
-    {#if baseBranch}
-      <div class="mr-mode-banner">
-        <div class="mr-mode-info">
-          <div class="mr-mode-text">
-            <span class="mr-mode-title">comparing to: <strong>{baseBranch}</strong></span>
-            {#if comparisonInfo}
-              <span class="mr-mode-stats">
-                {comparisonInfo.ahead} commit{comparisonInfo.ahead === 1 ? "" : "s"} ahead
-                {#if comparisonInfo.behind > 0}
-                  · {comparisonInfo.behind} behind
-                {/if}
-              </span>
+    {#if filterScope === "search"}
+      <div class="global-search-inputs">
+        <div class="search-input-box">
+          <input
+            bind:this={searchInputEl}
+            type="text"
+            placeholder="Search in repository (press Enter)..."
+            value={globalQuery}
+            on:input={handleSearchInput}
+            on:keydown={handleSearchKeydown}
+            class="global-search-field"
+            spellcheck="false"
+          />
+          <div class="search-input-actions">
+            <button
+              class="search-toggle-btn"
+              class:active={globalCaseSensitive}
+              on:click={toggleCaseSensitive}
+              title="Match Case (Aa)"
+            >
+              Aa
+            </button>
+            <button
+              class="search-toggle-btn"
+              class:active={globalMatchWholeWord}
+              on:click={toggleMatchWholeWord}
+              title="Match Whole Word (\b)"
+            >
+              \b
+            </button>
+            <button
+              class="search-toggle-btn"
+              class:active={globalUseRegex}
+              on:click={toggleUseRegex}
+              title="Use Regular Expression (.*)"
+            >
+              .*
+            </button>
+            {#if globalQuery}
+              <button
+                class="search-clear-btn"
+                on:click={() => {
+                  globalQuery = "";
+                  searchResults = { matches: [], total_count: 0, truncated: false };
+                  searchError = null;
+                }}
+                title="Clear Search"
+              >
+                ✕
+              </button>
             {/if}
           </div>
         </div>
+
+        <!-- Collapsible files to include filter -->
+        <div class="pattern-toggle-row">
+          <button
+            class="pattern-toggle-btn"
+            on:click={() => (showPatternInput = !showPatternInput)}
+          >
+            <span class="pattern-chevron" class:expanded={showPatternInput}>▸</span>
+            <span>files to include</span>
+          </button>
+          {#if globalFilePattern}
+            <span class="active-filter-indicator">•</span>
+          {/if}
+        </div>
+
+        {#if showPatternInput}
+          <div class="pattern-input-row">
+            <input
+              type="text"
+              placeholder="e.g. *.svelte, src/**"
+              value={globalFilePattern}
+              on:input={handlePatternInput}
+              on:keydown={handleSearchKeydown}
+              class="pattern-input"
+              spellcheck="false"
+            />
+            {#if globalFilePattern}
+              <button
+                class="search-clear-btn"
+                on:click={() => {
+                  globalFilePattern = "";
+                  if (globalQuery && searchResults.total_count > 0) {
+                    runGlobalSearch();
+                  }
+                }}
+                title="Clear Filter"
+              >
+                ✕
+              </button>
+            {/if}
+          </div>
+        {/if}
       </div>
-    {:else if filterScope === "changes"}
-      <div class="head-mode-banner">
-        <span class="head-mode-title">Comparing changes to latest commit (HEAD)</span>
+    {:else}
+      {#if baseBranch}
+        <div class="mr-mode-banner">
+          <div class="mr-mode-info">
+            <div class="mr-mode-text">
+              <span class="mr-mode-title">comparing to: <strong>{baseBranch}</strong></span>
+              {#if comparisonInfo}
+                <span class="mr-mode-stats">
+                  {comparisonInfo.ahead} commit{comparisonInfo.ahead === 1 ? "" : "s"} ahead
+                  {#if comparisonInfo.behind > 0}
+                    · {comparisonInfo.behind} behind
+                  {/if}
+                </span>
+              {/if}
+            </div>
+          </div>
+        </div>
+      {:else if filterScope === "changes"}
+        <div class="head-mode-banner">
+          <span class="head-mode-title">Comparing changes to latest commit (HEAD)</span>
+        </div>
+      {/if}
+
+      <!-- Search / Filter input (clean text only, no icons) -->
+      <div class="filter-row">
+        <input
+          type="text"
+          placeholder="Filter files..."
+          bind:value={searchQuery}
+          class="filter-input"
+        />
+        {#if searchQuery}
+          <button class="clear-btn" on:click={() => (searchQuery = "")}>✕</button>
+        {/if}
       </div>
     {/if}
-
-    <!-- Search / Filter input (clean text only, no icons) -->
-    <div class="filter-row">
-      <input
-        type="text"
-        placeholder="Filter files..."
-        bind:value={searchQuery}
-        class="filter-input"
-      />
-      {#if searchQuery}
-        <button class="clear-btn" on:click={() => (searchQuery = "")}>✕</button>
-      {/if}
-    </div>
   </div>
 
   <!-- Main Scrollable Directory Structure -->
   <div class="file-tree-container">
-    {#if filterScope === "changes" && !baseBranch}
+    {#if filterScope === "search"}
+      <div class="search-panel-body">
+        <div class="search-status-bar">
+          {#if isSearching}
+            <span class="search-status-text">Searching in repository...</span>
+          {:else if searchError}
+            <span class="search-status-error">{searchError}</span>
+          {:else if !globalQuery.trim()}
+            <span class="search-status-hint">Type a word or phrase to search files</span>
+          {:else if totalMatchedCount === 0}
+            <span class="search-status-empty">No results found for "{globalQuery}"</span>
+          {:else}
+            <span class="search-status-count">
+              {totalMatchedCount} result{totalMatchedCount === 1 ? "" : "s"} in {totalMatchedFiles} file{totalMatchedFiles === 1 ? "" : "s"}
+              {#if searchResults.truncated}
+                <span class="truncated-tag">(first 500 results)</span>
+              {/if}
+            </span>
+          {/if}
+        </div>
+
+        {#if groupedSearchResults.length > 0}
+          <div class="search-groups-list">
+            {#each groupedSearchResults as group (group.file)}
+              {@const isExpanded = expandedSearchFiles[group.file] !== false}
+              <div class="search-file-group">
+                <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+                <div
+                  class="search-file-header"
+                  class:is-active={selectedFile === group.file}
+                  on:click={() => toggleSearchFile(group.file)}
+                >
+                  <span class="search-chevron" class:expanded={isExpanded}>▸</span>
+                  <svg viewBox="0 0 16 16" width="13" height="13" class="search-file-icon" fill="currentColor">
+                    <path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25V1.75z"/>
+                  </svg>
+                  <span class="search-file-name">{group.fileName}</span>
+                  {#if group.folderPath}
+                    <span class="search-file-folder">{group.folderPath}</span>
+                  {/if}
+                  <span class="search-file-badge">{group.matches.length}</span>
+                </div>
+
+                {#if isExpanded}
+                  <div class="search-matches-list">
+                    {#each group.matches as match (match.line + "_" + match.content)}
+                      <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+                      <div
+                        class="search-match-item"
+                        on:click={() => handleSelectSearchMatch(group.file, match.line, globalQuery)}
+                        title={`Go to ${group.file}:${match.line}`}
+                      >
+                        <span class="search-match-line">L{match.line}</span>
+                        <span class="search-match-snippet">{@html highlightSnippet(match.content, globalQuery, globalCaseSensitive, globalUseRegex)}</span>
+                      </div>
+                    {/each}
+                  </div>
+                {/if}
+              </div>
+            {/each}
+          </div>
+        {/if}
+      </div>
+    {:else if filterScope === "changes" && !baseBranch}
       <!-- Staged Changes Section -->
       {#if stagedFilteredPaths.length > 0}
         <div class="git-staging-section">
@@ -467,7 +860,7 @@
       </div>
     {/if}
 
-    {#if filteredPaths.length === 0}
+    {#if filterScope !== "search" && filteredPaths.length === 0}
       {#if filterScope === "changes" && !searchQuery}
         <div class="empty-changes-state">
           <div class="empty-icon">✓</div>
@@ -986,5 +1379,302 @@
     line-height: 1.5;
     color: var(--text-muted);
     max-width: 200px;
+  }
+
+  /* Global Search Styles */
+  .global-search-inputs {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .search-input-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: var(--bg-subtle);
+    border-radius: 4px;
+    border: none;
+    transition: all 0.15s ease;
+  }
+
+  .search-input-box:focus-within {
+    background: var(--bg-card);
+    box-shadow: 0 0 0 1px var(--accent-glow);
+  }
+
+  .global-search-field {
+    width: 100%;
+    background: transparent;
+    border: none;
+    padding: 6px 95px 6px 10px;
+    font-size: 11.5px;
+    color: var(--text-primary);
+    outline: none;
+    box-sizing: border-box;
+    font-family: inherit;
+  }
+
+  .global-search-field::placeholder {
+    color: var(--text-muted);
+  }
+
+  .search-input-actions {
+    position: absolute;
+    right: 4px;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .search-toggle-btn {
+    background: none;
+    border: none;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding: 2px 4px;
+    border-radius: 3px;
+    cursor: pointer;
+    line-height: 1;
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+    transition: all 0.12s ease;
+  }
+
+  .search-toggle-btn:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+  }
+
+  .search-toggle-btn.active {
+    background: var(--bg-hover);
+    color: var(--accent-emerald);
+    font-weight: 700;
+  }
+
+  .search-clear-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 10px;
+    cursor: pointer;
+    padding: 2px 4px;
+    line-height: 1;
+  }
+
+  .search-clear-btn:hover {
+    color: var(--text-primary);
+  }
+
+  .pattern-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .pattern-toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 10.5px;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .pattern-toggle-btn:hover {
+    color: var(--text-secondary);
+  }
+
+  .pattern-chevron {
+    font-size: 9px;
+    display: inline-block;
+    transition: transform 0.15s ease;
+  }
+
+  .pattern-chevron.expanded {
+    transform: rotate(90deg);
+  }
+
+  .active-filter-indicator {
+    color: var(--accent-emerald);
+    font-size: 10px;
+  }
+
+  .pattern-input-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .pattern-input {
+    width: 100%;
+    background: var(--bg-subtle);
+    border-radius: 4px;
+    padding: 4px 24px 4px 8px;
+    border: none;
+    font-size: 11px;
+    color: var(--text-primary);
+    outline: none;
+    box-sizing: border-box;
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", monospace;
+  }
+
+  .pattern-input:focus {
+    background: var(--bg-card);
+    box-shadow: 0 0 0 1px var(--accent-glow);
+  }
+
+  .search-panel-body {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  .search-status-bar {
+    padding: 8px 12px 6px;
+    font-size: 11px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.04));
+    flex-shrink: 0;
+  }
+
+  .search-status-error {
+    color: #ef4444;
+  }
+
+  .search-status-count {
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  .truncated-tag {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-left: 4px;
+  }
+
+  .search-groups-list {
+    display: flex;
+    flex-direction: column;
+    padding: 4px 0;
+  }
+
+  .search-file-group {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .search-file-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 11.5px;
+    transition: background 0.1s ease;
+  }
+
+  .search-file-header:hover {
+    background: var(--bg-hover);
+  }
+
+  .search-file-header.is-active {
+    background: var(--bg-hover);
+  }
+
+  .search-chevron {
+    font-size: 9px;
+    color: var(--text-muted);
+    display: inline-block;
+    transition: transform 0.15s ease;
+    width: 10px;
+  }
+
+  .search-chevron.expanded {
+    transform: rotate(90deg);
+  }
+
+  .search-file-icon {
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+
+  .search-file-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .search-file-folder {
+    font-size: 10.5px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    direction: rtl;
+    text-align: left;
+    flex: 1;
+  }
+
+  .search-file-badge {
+    background: var(--bg-subtle);
+    border-radius: 9999px;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  .search-matches-list {
+    display: flex;
+    flex-direction: column;
+    padding-left: 18px;
+  }
+
+  .search-match-item {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 3px 12px 3px 10px;
+    cursor: pointer;
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", monospace;
+    font-size: 11px;
+    line-height: 1.4;
+    transition: background 0.1s ease;
+  }
+
+  .search-match-item:hover {
+    background: var(--bg-hover);
+  }
+
+  .search-match-line {
+    font-size: 10px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    min-width: 32px;
+  }
+
+  .search-match-snippet {
+    color: var(--text-secondary);
+    white-space: pre;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  :global(.search-snippet-match) {
+    background: rgba(250, 204, 21, 0.4);
+    color: inherit;
+    border-radius: 2px;
+    padding: 0 1px;
   }
 </style>
