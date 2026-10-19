@@ -17,15 +17,15 @@ function detectUserOS() {
     return {
       osName: "Windows",
       label: "Download for Windows",
-      sublabel: "64-bit • Coming Soon",
-      url: "https://github.com/yolandaihsan17/tengga"
+      sublabel: "64-bit • .exe & .msi",
+      url: "https://github.com/yolandaihsan17/tengga/releases/latest"
     };
   } else if (/Linux/i.test(platform) || /Linux/i.test(ua)) {
     return {
       osName: "Linux",
       label: "Download for Linux",
-      sublabel: "Debian, Ubuntu • Coming Soon",
-      url: "https://github.com/yolandaihsan17/tengga"
+      sublabel: "Debian, Ubuntu • .deb & .AppImage",
+      url: "https://github.com/yolandaihsan17/tengga/releases/latest"
     };
   }
 
