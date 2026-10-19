@@ -4,6 +4,7 @@
   import DiffView from "./lib/DiffView.svelte";
   import SettingsModal from "./lib/SettingsModal.svelte";
   import WorktreeTabs from "./lib/WorktreeTabs.svelte";
+  import QuickOpen from "./lib/QuickOpen.svelte";
   import {
     pickFolder,
     getDiff,
@@ -53,7 +54,20 @@
 
   let settings = { ...DEFAULT_SETTINGS };
   let isSettingsOpen = false;
+  let isQuickOpenOpen = false;
   let currentTheme = "dark";
+
+  async function openQuickOpen() {
+    if (!repoPath) return;
+    isQuickOpenOpen = true;
+    if (!repoFiles || repoFiles.length === 0) {
+      try {
+        repoFiles = await getRepoFiles(repoPath);
+      } catch (err) {
+        repoFiles = [];
+      }
+    }
+  }
 
   function loadSettings() {
     try {
@@ -914,6 +928,17 @@
   function handleGlobalKeydown(e) {
     const isModifier = e.metaKey || e.ctrlKey;
 
+    // Quick Open File: Cmd + P / Ctrl + P
+    if (isModifier && !e.shiftKey && !e.altKey && (e.code === "KeyP" || e.key.toLowerCase() === "p")) {
+      e.preventDefault();
+      if (isQuickOpenOpen) {
+        isQuickOpenOpen = false;
+      } else {
+        openQuickOpen();
+      }
+      return;
+    }
+
     // Toggle Settings: Cmd + ,
     if (isModifier && (e.key === "," || e.code === "Comma")) {
       e.preventDefault();
@@ -1252,8 +1277,21 @@
       {/if}
     </div>
 
-    <!-- Folder Switcher & Settings -->
+    <!-- Folder Switcher, Quick Open & Settings -->
     <div class="topbar-actions">
+      {#if repoPath}
+        <button
+          class="action-icon-btn quick-open-btn"
+          disabled={isGitOperating}
+          on:click={openQuickOpen}
+          title={isMac ? "Go to File (Cmd+P)" : "Go to File (Ctrl+P)"}
+        >
+          <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor">
+            <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+          </svg>
+        </button>
+      {/if}
+
       <button class="action-btn" disabled={isGitOperating} on:click={openFolder}>
         {repoPath ? "Switch Folder" : "Open Folder"}
       </button>
@@ -1262,7 +1300,7 @@
         class="action-icon-btn settings-btn"
         disabled={isGitOperating}
         on:click={() => (isSettingsOpen = true)}
-        title="Settings (⌘,)"
+        title={isMac ? "Settings (Cmd+,)" : "Settings (Ctrl+,)"}
       >
         <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
           <path d="M8 4.75a3.25 3.25 0 1 0 0 6.5 3.25 3.25 0 0 0 0-6.5zM6.25 8a1.75 1.75 0 1 1 3.5 0 1.75 1.75 0 0 1-3.5 0z"/>
@@ -1387,6 +1425,16 @@
       {settings}
       onSave={handleSaveSettings}
       onClose={() => (isSettingsOpen = false)}
+    />
+  {/if}
+
+  <!-- Quick Open Palette (Cmd+P) -->
+  {#if isQuickOpenOpen}
+    <QuickOpen
+      {files}
+      {repoFiles}
+      onSelect={(p) => handleSelectFile(p)}
+      onClose={() => (isQuickOpenOpen = false)}
     />
   {/if}
 </main>
