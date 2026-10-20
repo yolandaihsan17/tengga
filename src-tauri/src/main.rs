@@ -2,6 +2,8 @@
 
 mod diff;
 mod git;
+mod menu;
+mod platform;
 mod watcher;
 
 use diff::{parse_diff, FileDiff, HunkPatch};
@@ -12,7 +14,7 @@ use tauri::{Manager, State};
 
 #[derive(Default)]
 struct AppState {
-    watcher: Mutex<Option<notify::RecommendedWatcher>>,
+    watchers: Mutex<HashMap<String, notify::RecommendedWatcher>>,
     hunk_patches: Mutex<HashMap<String, HunkPatch>>,
 }
 
@@ -25,9 +27,11 @@ fn validate_git_repo(path: String) -> bool {
 fn start_watcher(app: tauri::AppHandle, state: State<AppState>, path: String) -> Result<(), String> {
     let repo = PathBuf::from(&path);
     let common_dir = git::git_common_dir(&repo).ok();
-    let w = watcher::watch(app, &repo, common_dir.as_deref()).map_err(|e| e.to_string())?;
-    *state.watcher.lock().unwrap() = Some(w);
-    state.hunk_patches.lock().unwrap().clear();
+    let mut watchers = state.watchers.lock().unwrap();
+    if let std::collections::hash_map::Entry::Vacant(e) = watchers.entry(path) {
+        let w = watcher::watch(app, &repo, common_dir.as_deref()).map_err(|e| e.to_string())?;
+        e.insert(w);
+    }
     Ok(())
 }
 
@@ -147,15 +151,14 @@ fn get_diff(
 
             let patches: Vec<(String, HunkPatch)> = unstaged_patches
                 .into_iter()
-                .chain(staged_patches.into_iter())
-                .chain(untracked_patches.into_iter())
+                .chain(staged_patches)
+                .chain(untracked_patches)
                 .collect();
             (files.into_values().collect(), patches)
         }
     };
 
     let mut patches = state.hunk_patches.lock().unwrap();
-    patches.clear();
     for (id, p) in all_patches {
         patches.insert(id, p);
     }
@@ -332,151 +335,49 @@ async fn discard_all(repo_path: String) -> Result<(), String> {
     .map_err(|e| e.to_string())?
 }
 
-#[cfg(target_os = "macos")]
-fn set_macos_dock_icon(png_bytes: &[u8]) {
-    #[link(name = "objc", kind = "dylib")]
-    extern "C" {
-        fn objc_getClass(name: *const std::os::raw::c_char) -> *mut std::ffi::c_void;
-        fn sel_registerName(name: *const std::os::raw::c_char) -> *mut std::ffi::c_void;
-        fn objc_msgSend();
-    }
-
-    unsafe {
-        type MsgSend0 = unsafe extern "C" fn(*mut std::ffi::c_void, *mut std::ffi::c_void) -> *mut std::ffi::c_void;
-        type MsgSend1 = unsafe extern "C" fn(*mut std::ffi::c_void, *mut std::ffi::c_void, *mut std::ffi::c_void) -> *mut std::ffi::c_void;
-        type MsgSend2 = unsafe extern "C" fn(*mut std::ffi::c_void, *mut std::ffi::c_void, *const u8, usize) -> *mut std::ffi::c_void;
-
-        let msg_send0: MsgSend0 = std::mem::transmute(objc_msgSend as *const ());
-        let msg_send1: MsgSend1 = std::mem::transmute(objc_msgSend as *const ());
-        let msg_send2: MsgSend2 = std::mem::transmute(objc_msgSend as *const ());
-
-        let nsdata_class = objc_getClass(b"NSData\0".as_ptr() as _);
-        let sel_data_with_bytes = sel_registerName(b"dataWithBytes:length:\0".as_ptr() as _);
-        let data = msg_send2(nsdata_class, sel_data_with_bytes, png_bytes.as_ptr(), png_bytes.len());
-        if data.is_null() { return; }
-
-        let nsimage_class = objc_getClass(b"NSImage\0".as_ptr() as _);
-        let sel_alloc = sel_registerName(b"alloc\0".as_ptr() as _);
-        let sel_init_with_data = sel_registerName(b"initWithData:\0".as_ptr() as _);
-        let img_alloc = msg_send0(nsimage_class, sel_alloc);
-        let img = msg_send1(img_alloc, sel_init_with_data, data);
-        if img.is_null() { return; }
-
-        let nsapp_class = objc_getClass(b"NSApplication\0".as_ptr() as _);
-        let sel_shared_app = sel_registerName(b"sharedApplication\0".as_ptr() as _);
-        let sel_set_icon = sel_registerName(b"setApplicationIconImage:\0".as_ptr() as _);
-        let app = msg_send0(nsapp_class, sel_shared_app);
-        if !app.is_null() {
-            msg_send1(app, sel_set_icon, img);
-        }
-
-        let nsprocessinfo_class = objc_getClass(b"NSProcessInfo\0".as_ptr() as _);
-        let sel_process_info = sel_registerName(b"processInfo\0".as_ptr() as _);
-        let sel_set_process_name = sel_registerName(b"setProcessName:\0".as_ptr() as _);
-        let nsstring_class = objc_getClass(b"NSString\0".as_ptr() as _);
-        let sel_string_with_utf8 = sel_registerName(b"stringWithUTF8String:\0".as_ptr() as _);
-        let pinfo = msg_send0(nsprocessinfo_class, sel_process_info);
-        if !pinfo.is_null() {
-            let name_str = msg_send1(nsstring_class, sel_string_with_utf8, b"tengga\0".as_ptr() as _);
-            if !name_str.is_null() {
-                msg_send1(pinfo, sel_set_process_name, name_str);
-            }
-        }
-
-        let nsworkspace_class = objc_getClass(b"NSWorkspace\0".as_ptr() as _);
-        let sel_shared_ws = sel_registerName(b"sharedWorkspace\0".as_ptr() as _);
-        let sel_set_icon_for_file = sel_registerName(b"setIcon:forFile:options:\0".as_ptr() as _);
-        let ws = msg_send0(nsworkspace_class, sel_shared_ws);
-        if !ws.is_null() {
-            if let Ok(exe_path) = std::env::current_exe() {
-                if let Some(path_str) = exe_path.to_str() {
-                    let mut c_path = path_str.as_bytes().to_vec();
-                    c_path.push(0);
-                    let path_obj = msg_send1(nsstring_class, sel_string_with_utf8, c_path.as_ptr() as _);
-                    if !path_obj.is_null() {
-                        type MsgSendSetIcon = unsafe extern "C" fn(*mut std::ffi::c_void, *mut std::ffi::c_void, *mut std::ffi::c_void, *mut std::ffi::c_void, usize) -> bool;
-                        let msg_send_set_icon: MsgSendSetIcon = std::mem::transmute(objc_msgSend as *const ());
-                        msg_send_set_icon(ws, sel_set_icon_for_file, img, path_obj, 0);
-                    }
-                }
-            }
-        }
-    }
+#[tauri::command]
+fn set_window_blur_intensity(app: tauri::AppHandle, intensity: f64) -> Result<(), String> {
+    platform::set_window_blur_intensity(&app, intensity)
 }
 
-#[cfg(target_os = "macos")]
-fn ensure_macos_transparency(w: &tauri::WebviewWindow) {
-    use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial};
-    let _ = apply_vibrancy(w, NSVisualEffectMaterial::HudWindow, None, None);
+fn create_window_instance(app: &tauri::AppHandle) -> Result<tauri::WebviewWindow, String> {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    static WINDOW_COUNTER: AtomicUsize = AtomicUsize::new(1);
+    let count = WINDOW_COUNTER.fetch_add(1, Ordering::SeqCst);
+    let label = format!("window-{}", count);
 
-    if let Ok(ns_win) = w.ns_window() {
-        unsafe {
-            type MsgSend0 = unsafe extern "C" fn(*mut std::ffi::c_void, *mut std::ffi::c_void) -> *mut std::ffi::c_void;
-            type MsgSendInt = unsafe extern "C" fn(*mut std::ffi::c_void, *mut std::ffi::c_void, isize) -> *mut std::ffi::c_void;
-            type MsgSendFloat = unsafe extern "C" fn(*mut std::ffi::c_void, *mut std::ffi::c_void, f64);
+    let mut builder = tauri::WebviewWindowBuilder::new(
+        app,
+        &label,
+        tauri::WebviewUrl::App("index.html".into()),
+    )
+    .title("Tengga — Diff Review")
+    .inner_size(1100.0, 750.0)
+    .transparent(true);
 
-            extern "C" {
-                fn sel_registerName(name: *const std::os::raw::c_char) -> *mut std::ffi::c_void;
-                fn objc_msgSend();
-            }
-
-            let msg_send0: MsgSend0 = std::mem::transmute(objc_msgSend as *const ());
-            let msg_send_int: MsgSendInt = std::mem::transmute(objc_msgSend as *const ());
-            let msg_send_float: MsgSendFloat = std::mem::transmute(objc_msgSend as *const ());
-
-            let sel_content_view = sel_registerName(b"contentView\0".as_ptr() as _);
-            let sel_view_with_tag = sel_registerName(b"viewWithTag:\0".as_ptr() as _);
-            let sel_set_alpha = sel_registerName(b"setAlphaValue:\0".as_ptr() as _);
-
-            let content_view = msg_send0(ns_win as _, sel_content_view);
-            if !content_view.is_null() {
-                // NS_VIEW_TAG_BLUR_VIEW is 91376254 from window_vibrancy
-                let blur_view = msg_send_int(content_view, sel_view_with_tag, 91376254);
-                if !blur_view.is_null() {
-                    // Set blur opacity to 0.30 (soft subtle blur instead of heavy frosted blur)
-                    msg_send_float(blur_view, sel_set_alpha, 0.30);
-                }
-            }
-        }
+    #[cfg(target_os = "macos")]
+    {
+        builder = builder
+            .title_bar_style(tauri::TitleBarStyle::Overlay)
+            .hidden_title(true);
     }
+
+    let window = builder.build().map_err(|e| e.to_string())?;
+
+    let icon = tauri::include_image!("icons/icon.png");
+    let _ = window.set_icon(icon);
+
+    #[cfg(target_os = "macos")]
+    {
+        platform::ensure_macos_transparency(&window);
+    }
+
+    Ok(window)
 }
 
 #[tauri::command]
-fn set_window_blur_intensity(app: tauri::AppHandle, intensity: f64) -> Result<(), String> {
-    #[cfg(target_os = "macos")]
-    {
-        if let Some(w) = app.get_webview_window("main") {
-            if let Ok(ns_win) = w.ns_window() {
-                unsafe {
-                    type MsgSend0 = unsafe extern "C" fn(*mut std::ffi::c_void, *mut std::ffi::c_void) -> *mut std::ffi::c_void;
-                    type MsgSendInt = unsafe extern "C" fn(*mut std::ffi::c_void, *mut std::ffi::c_void, isize) -> *mut std::ffi::c_void;
-                    type MsgSendFloat = unsafe extern "C" fn(*mut std::ffi::c_void, *mut std::ffi::c_void, f64);
-
-                    extern "C" {
-                        fn sel_registerName(name: *const std::os::raw::c_char) -> *mut std::ffi::c_void;
-                        fn objc_msgSend();
-                    }
-
-                    let msg_send0: MsgSend0 = std::mem::transmute(objc_msgSend as *const ());
-                    let msg_send_int: MsgSendInt = std::mem::transmute(objc_msgSend as *const ());
-                    let msg_send_float: MsgSendFloat = std::mem::transmute(objc_msgSend as *const ());
-
-                    let sel_content_view = sel_registerName(b"contentView\0".as_ptr() as _);
-                    let sel_view_with_tag = sel_registerName(b"viewWithTag:\0".as_ptr() as _);
-                    let sel_set_alpha = sel_registerName(b"setAlphaValue:\0".as_ptr() as _);
-
-                    let content_view = msg_send0(ns_win as _, sel_content_view);
-                    if !content_view.is_null() {
-                        let blur_view = msg_send_int(content_view, sel_view_with_tag, 91376254);
-                        if !blur_view.is_null() {
-                            let clamped = intensity.clamp(0.0, 1.0);
-                            msg_send_float(blur_view, sel_set_alpha, clamped);
-                        }
-                    }
-                }
-            }
-        }
-    }
+async fn create_new_window(app: tauri::AppHandle) -> Result<(), String> {
+    create_window_instance(&app)?;
     Ok(())
 }
 
@@ -487,28 +388,31 @@ fn start_drag_window(window: tauri::WebviewWindow) -> Result<(), String> {
 
 #[tauri::command]
 fn toggle_maximize_window(window: tauri::WebviewWindow) -> Result<(), String> {
+    platform::toggle_maximize_window(&window)
+}
+
+#[tauri::command]
+fn open_external_url(url: String) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
-        if let Ok(ns_win) = window.ns_window() {
-            unsafe {
-                type MsgSend1 = unsafe extern "C" fn(*mut std::ffi::c_void, *mut std::ffi::c_void, *mut std::ffi::c_void);
-                extern "C" {
-                    fn sel_registerName(name: *const std::os::raw::c_char) -> *mut std::ffi::c_void;
-                    fn objc_msgSend();
-                }
-                let msg_send1: MsgSend1 = std::mem::transmute(objc_msgSend as *const ());
-                let sel_zoom = sel_registerName(b"zoom:\0".as_ptr() as _);
-                msg_send1(ns_win as _, sel_zoom, std::ptr::null_mut());
-                return Ok(());
-            }
-        }
+        std::process::Command::new("open")
+            .arg(&url)
+            .spawn()
+            .map_err(|e| e.to_string())?;
     }
-
-    let is_max = window.is_maximized().map_err(|e| e.to_string())?;
-    if is_max {
-        window.unmaximize().map_err(|e| e.to_string())?;
-    } else {
-        window.maximize().map_err(|e| e.to_string())?;
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd")
+            .args(["/C", "start", &url])
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&url)
+            .spawn()
+            .map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -524,14 +428,32 @@ fn main() {
 
                 #[cfg(target_os = "macos")]
                 {
-                    ensure_macos_transparency(&w);
+                    platform::ensure_macos_transparency(&w);
                 }
             }
             #[cfg(target_os = "macos")]
             {
                 let icon_bytes = include_bytes!("../icons/icon.png");
-                set_macos_dock_icon(icon_bytes);
+                platform::set_macos_dock_icon(icon_bytes);
             }
+
+            let menu = menu::build_menu(app)?;
+            let _ = app.set_menu(menu);
+
+            use tauri::Emitter;
+            app.on_menu_event(|app_handle, event| {
+                let id = event.id().as_ref();
+                if id == "new_window" {
+                    let _ = create_window_instance(app_handle);
+                } else if id == "about_tengga" || id == "about_tengga_help" {
+                    let _ = app_handle.emit("open-about", ());
+                } else if id == "open_repo" {
+                    let _ = open_external_url("https://github.com/yolandaihsan17/tengga".to_string());
+                } else if id == "report_issue" {
+                    let _ = open_external_url("https://github.com/yolandaihsan17/tengga/issues".to_string());
+                }
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -559,7 +481,9 @@ fn main() {
             set_window_blur_intensity,
             search_repo_content,
             start_drag_window,
-            toggle_maximize_window
+            toggle_maximize_window,
+            create_new_window,
+            open_external_url
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

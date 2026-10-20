@@ -16,6 +16,7 @@
 
   export let onSave = (newSettings) => {};
   export let onClose = () => {};
+  export let onOpenAbout = null;
 
   let activeTab = "worktrees"; // "worktrees" | "appearance" | "diff"
 
@@ -284,9 +285,16 @@
 
     <!-- Footer -->
     <div class="settings-footer">
-      <button class="btn-reset" on:click={resetDefaults}>
-        Reset to Defaults
-      </button>
+      <div class="footer-left">
+        <button class="btn-reset" on:click={resetDefaults}>
+          Reset to Defaults
+        </button>
+        {#if onOpenAbout}
+          <button class="btn-about-link" on:click={() => { onClose(); onOpenAbout(); }}>
+            About Tengga
+          </button>
+        {/if}
+      </div>
       <button class="btn-done" on:click={onClose}>
         Done
       </button>
@@ -612,6 +620,28 @@
     justify-content: space-between;
     padding: 14px 20px;
     background: var(--bg-topbar);
+  }
+
+  .footer-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn-about-link {
+    background: transparent;
+    border: none;
+    color: var(--accent-emerald);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 6px;
+    transition: all 0.12s ease;
+  }
+
+  .btn-about-link:hover {
+    background: var(--accent-emerald-soft);
   }
 
   .btn-reset {

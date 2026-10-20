@@ -1,4 +1,5 @@
 <script>
+  import { tick } from "svelte";
   import HunkView from "./HunkView.svelte";
   import FindReplace from "./FindReplace.svelte";
   import { highlightCode } from "./syntax.js";
@@ -29,7 +30,51 @@
   let gutterEl = null;
   let syntaxEl = null;
   let searchEl = null;
+  let diffScrollEl = null;
   let prevFile = null;
+
+  // Scroll position memory per file: filePath -> { diffTop: number, contentTop: number, contentLeft: number }
+  const fileScrollMap = new Map();
+
+  function handleDiffScroll(e) {
+    if (!file) return;
+    const current = fileScrollMap.get(file.path) || { diffTop: 0, contentTop: 0, contentLeft: 0 };
+    current.diffTop = e.target.scrollTop;
+    fileScrollMap.set(file.path, current);
+  }
+
+  function handleEditorScroll(e) {
+    syncScroll();
+    if (!file) return;
+    const current = fileScrollMap.get(file.path) || { diffTop: 0, contentTop: 0, contentLeft: 0 };
+    current.contentTop = e.target.scrollTop;
+    current.contentLeft = e.target.scrollLeft;
+    fileScrollMap.set(file.path, current);
+  }
+
+  function restoreScrollPosition(path, view) {
+    if (!path) return;
+    const saved = fileScrollMap.get(path);
+    if (!saved) return;
+
+    tick().then(() => {
+      requestAnimationFrame(() => {
+        if (view === "diff" && diffScrollEl) {
+          diffScrollEl.scrollTop = saved.diffTop;
+        } else if (view === "content" && textareaEl) {
+          textareaEl.scrollTop = saved.contentTop;
+          textareaEl.scrollLeft = saved.contentLeft;
+          syncScroll();
+        }
+      });
+    });
+  }
+
+  function handleWindowFocus() {
+    if (file) {
+      restoreScrollPosition(file.path, activeView);
+    }
+  }
 
   // Find & Replace state
   let isFindOpen = false;
@@ -100,11 +145,17 @@
       if (targetLine) {
         prevTargetLine = targetLine;
         setTimeout(() => jumpToLine(targetLine), 30);
+      } else {
+        restoreScrollPosition(file.path, activeView);
       }
     } else if (!isDirty && fileContent !== null && editedContent !== fileContent) {
+      const prevScroll = fileScrollMap.get(file?.path);
       editedContent = fileContent;
       if (isFindOpen && findQuery) {
         runSearch(findQuery, findCaseSensitive, { shouldScroll: false });
+      }
+      if (prevScroll) {
+        restoreScrollPosition(file?.path, "content");
       }
     }
 
@@ -405,6 +456,8 @@
   }
 </script>
 
+<svelte:window on:focus={handleWindowFocus} />
+
 {#if file}
   <div class="diff-container">
     <!-- File Header Bar -->
@@ -481,14 +534,20 @@
               <button
                 class="switch-btn"
                 class:active={activeView === "diff"}
-                on:click={() => (activeView = "diff")}
+                on:click={() => {
+                  activeView = "diff";
+                  restoreScrollPosition(file?.path, "diff");
+                }}
               >
                 Diff ({file.hunks.length})
               </button>
               <button
                 class="switch-btn"
                 class:active={activeView === "content"}
-                on:click={() => (activeView = "content")}
+                on:click={() => {
+                  activeView = "content";
+                  restoreScrollPosition(file?.path, "content");
+                }}
               >
                 File Content
               </button>
@@ -507,7 +566,12 @@
     </div>
 
     <!-- Main Content Area -->
-    <div class="diff-scroll" class:editor-mode={activeView === "content" || !hasHunks}>
+    <div
+      bind:this={diffScrollEl}
+      class="diff-scroll"
+      class:editor-mode={activeView === "content" || !hasHunks}
+      on:scroll={handleDiffScroll}
+    >
       {#if activeView === "diff" && hasHunks}
         <!-- Unified Diff Hunk View -->
         {#each file.hunks as hunk (hunk.id)}
@@ -524,7 +588,7 @@
         </div>
       {:else}
         <!-- Full File Content & Inline Editor with Syntax Highlighting -->
-        {#if isLoadingContent}
+        {#if isLoadingContent && fileContent === null && editedContent === ""}
           <div class="loading-state">Loading file content...</div>
         {:else if contentError}
           <div class="status-panel">
@@ -549,7 +613,7 @@
                 class="code-editor"
                 value={editedContent}
                 on:input={handleInput}
-                on:scroll={syncScroll}
+                on:scroll={handleEditorScroll}
                 on:keydown={handleKeydown}
                 spellcheck="false"
                 wrap="off"

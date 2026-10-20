@@ -1,5 +1,4 @@
 use serde::Serialize;
-use uuid::Uuid;
 
 #[derive(Serialize, Clone, Debug, PartialEq, Eq)]
 pub struct Line {
@@ -66,10 +65,10 @@ pub fn parse_diff(raw: &str, source: &str) -> (Vec<FileDiff>, Vec<(String, HunkP
         let mut additions = 0u32;
         let mut deletions = 0u32;
 
-        for hunk_text in split_hunks(&file_block) {
-            let id = Uuid::new_v4().to_string();
-            let lines = parse_hunk_lines(&hunk_text, &mut additions, &mut deletions);
+        for (hunk_idx, hunk_text) in split_hunks(&file_block).into_iter().enumerate() {
             let header = hunk_text.lines().next().unwrap_or("").to_string();
+            let id = format!("{}:{}:{}:{}", path, source, hunk_idx, header);
+            let lines = parse_hunk_lines(&hunk_text, &mut additions, &mut deletions);
 
             hunks.push(Hunk {
                 id: id.clone(),

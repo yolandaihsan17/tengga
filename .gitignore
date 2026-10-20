@@ -3,6 +3,14 @@ node_modules/
 
 # Production builds
 dist/
+landing/downloads/
+*.dmg
+*.exe
+*.msi
+*.deb
+*.AppImage
+*.zip
+*.tar.gz
 
 # Rust target
 src-tauri/target/

@@ -3,8 +3,10 @@
   import FileList from "./lib/FileList.svelte";
   import DiffView from "./lib/DiffView.svelte";
   import SettingsModal from "./lib/SettingsModal.svelte";
+  import AboutModal from "./lib/AboutModal.svelte";
   import WorktreeTabs from "./lib/WorktreeTabs.svelte";
   import QuickOpen from "./lib/QuickOpen.svelte";
+  import { sortBranchesWithRelevance } from "./lib/branchUtils.js";
   import {
     pickFolder,
     getDiff,
@@ -30,6 +32,8 @@
     onChangesDetected,
     onWorktreesChanged,
     setWindowBlurIntensity,
+    createNewWindow,
+    onOpenAbout,
   } from "./lib/api.js";
 
   const DEFAULT_SETTINGS = {
@@ -54,6 +58,7 @@
 
   let settings = { ...DEFAULT_SETTINGS };
   let isSettingsOpen = false;
+  let isAboutOpen = false;
   let isQuickOpenOpen = false;
   let currentTheme = "dark";
 
@@ -222,6 +227,7 @@
   let fileListRef = null;
   let error = null;
   let unlisten = null;
+  let unlistenAbout = null;
   let isRefreshing = false;
 
   let fileContent = null;
@@ -247,68 +253,39 @@
   $: diffFile = files.find((f) => f.path === selectedFile);
   $: currentFile = diffFile || (selectedFile ? { path: selectedFile, hunks: [], additions: 0, deletions: 0, is_binary: false } : null);
 
-  function sortBranchesWithRelevance(branches, query, current) {
-    const q = (query || "").toLowerCase().trim();
-    const commonBases = ["release", "origin/release", "main", "origin/main", "master", "origin/master", "dev", "origin/dev"];
-
-    const candidates = branches.filter((b) => b !== current && (!q || b.toLowerCase().includes(q)));
-
-    return candidates.sort((a, b) => {
-      const aLower = a.toLowerCase();
-      const bLower = b.toLowerCase();
-
-      if (q) {
-        // 1. Exact match with query or origin/query
-        const aExact = aLower === q || aLower === `origin/${q}`;
-        const bExact = bLower === q || bLower === `origin/${q}`;
-        if (aExact && !bExact) return -1;
-        if (!aExact && bExact) return 1;
-
-        // 2. Starts with query or origin/query
-        const aStarts = aLower.startsWith(q) || aLower.startsWith(`origin/${q}`);
-        const bStarts = bLower.startsWith(q) || bLower.startsWith(`origin/${q}`);
-        if (aStarts && !bStarts) return -1;
-        if (!aStarts && bStarts) return 1;
-
-        // 3. Ends with /query (e.g. branch ending with /release)
-        const aEnds = aLower.endsWith(`/${q}`);
-        const bEnds = bLower.endsWith(`/${q}`);
-        if (aEnds && !bEnds) return -1;
-        if (!aEnds && bEnds) return 1;
-      } else {
-        // If no query, prioritize common base branches
-        const aCommon = commonBases.indexOf(aLower);
-        const bCommon = commonBases.indexOf(bLower);
-        if (aCommon !== -1 && bCommon !== -1) return aCommon - bCommon;
-        if (aCommon !== -1) return -1;
-        if (bCommon !== -1) return 1;
-      }
-
-      return aLower.localeCompare(bLower);
-    });
-  }
-
   $: filteredBranches = sortBranchesWithRelevance(availableBranches, branchFilter, null);
   $: filteredCompareBranches = sortBranchesWithRelevance(availableBranches, compareFilter, currentBranch);
 
+  let currentLoadedPath = null;
+
   $: if (repoPath && selectedFile) {
-    loadFileContent(selectedFile);
+    const isNewFile = selectedFile !== currentLoadedPath;
+    loadFileContent(selectedFile, !isNewFile);
   } else {
+    currentLoadedPath = null;
     fileContent = null;
     contentError = null;
   }
 
-  async function loadFileContent(filePath) {
+  async function loadFileContent(filePath, silent = false) {
     if (!repoPath || !filePath) return;
-    isLoadingContent = true;
+    if (!silent) {
+      isLoadingContent = true;
+    }
     contentError = null;
     try {
-      fileContent = await getFileContent(repoPath, filePath);
+      const content = await getFileContent(repoPath, filePath);
+      currentLoadedPath = filePath;
+      if (fileContent !== content) {
+        fileContent = content;
+      }
     } catch (e) {
       contentError = String(e);
       fileContent = null;
     } finally {
-      isLoadingContent = false;
+      if (!silent) {
+        isLoadingContent = false;
+      }
     }
   }
 
@@ -338,7 +315,7 @@
         repoFiles = await getRepoFiles(repoPath).catch(() => []);
       }
       if (selectedFile) {
-        loadFileContent(selectedFile);
+        loadFileContent(selectedFile, true);
       }
       if (repoPath && settings.autoDetectWorktrees && worktrees.length === 0) {
         loadWorktrees(repoPath, true);
@@ -407,7 +384,7 @@
       const diffList = await getDiff(repoPath, baseBranch);
       files = diffList;
       if (reloadSelected && selectedFile) {
-        loadFileContent(selectedFile);
+        loadFileContent(selectedFile, true);
       }
     } catch (e) {
       error = String(e);
@@ -939,6 +916,13 @@
       return;
     }
 
+    // New Window: Cmd + N / Ctrl + N
+    if (isModifier && !e.altKey && (e.code === "KeyN" || e.key.toLowerCase() === "n")) {
+      e.preventDefault();
+      createNewWindow();
+      return;
+    }
+
     // Toggle Settings: Cmd + ,
     if (isModifier && (e.key === "," || e.code === "Comma")) {
       e.preventDefault();
@@ -999,11 +983,16 @@
         loadWorktrees(repoPath, false);
       }
     });
+
+    unlistenAbout = await onOpenAbout(() => {
+      isAboutOpen = true;
+    });
   });
 
   onDestroy(() => {
     if (unlisten) unlisten();
     if (unlistenWorktrees) unlistenWorktrees();
+    if (unlistenAbout) unlistenAbout();
     if (activeResizeCleanup) activeResizeCleanup();
     if (typeof window !== "undefined") {
       window.removeEventListener("focus", handleWindowFocus);
@@ -1025,9 +1014,11 @@
           <span class="repo-brand-text">{repoName}</span>
         </div>
       {:else}
-        <img src="/favicon.png" alt="Tengga" class="app-logo-mini" />
-        <span class="app-name">TENGGA</span>
-        <span class="app-tagline">Diff Review</span>
+        <button class="brand-btn" on:click={() => (isAboutOpen = true)} title="About Tengga">
+          <img src="/favicon.png" alt="Tengga" class="app-logo-mini" />
+          <span class="app-name">TENGGA</span>
+          <span class="app-tagline">Diff Review</span>
+        </button>
       {/if}
     </div>
 
@@ -1425,7 +1416,13 @@
       {settings}
       onSave={handleSaveSettings}
       onClose={() => (isSettingsOpen = false)}
+      onOpenAbout={() => (isAboutOpen = true)}
     />
+  {/if}
+
+  <!-- About Modal Dialog -->
+  {#if isAboutOpen}
+    <AboutModal onClose={() => (isAboutOpen = false)} />
   {/if}
 
   <!-- Quick Open Palette (Cmd+P) -->
@@ -1518,6 +1515,23 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .brand-btn {
+    display: inline-flex;
+    align-items: center;
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    transition: opacity 0.12s ease;
+  }
+
+  .brand-btn:hover {
+    opacity: 0.85;
   }
 
   .app-logo-mini {
@@ -1994,7 +2008,7 @@
     transform: translateY(0);
   }
 
-  .settings-btn {
+  .action-icon-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -2008,9 +2022,12 @@
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  .settings-btn:hover {
+  .action-icon-btn:hover {
     background: var(--bg-hover);
     color: var(--accent-emerald);
+  }
+
+  .settings-btn:hover {
     transform: rotate(45deg);
   }
 

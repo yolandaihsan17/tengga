@@ -54,14 +54,7 @@ pub fn watch(
     }
 
     std::thread::spawn(move || {
-        loop {
-            // block for the first event, then drain anything else that
-            // arrives within DEBOUNCE before emitting once
-            let first = match rx.recv() {
-                Ok(evt) => evt,
-                Err(_) => break,
-            };
-
+        while let Ok(first) = rx.recv() {
             let mut has_worktree_change = false;
             if let Ok(ref event) = first {
                 if event.paths.iter().any(|p| {

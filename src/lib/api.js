@@ -143,3 +143,26 @@ export async function toggleMaximizeWindow() {
   }
 }
 
+export async function createNewWindow() {
+  try {
+    await invoke("create_new_window");
+  } catch (e) {
+    console.warn("Could not create new window:", e);
+  }
+}
+
+export function onOpenAbout(callback) {
+  return listen("open-about", callback);
+}
+
+export async function openExternalUrl(url) {
+  try {
+    await invoke("open_external_url", { url });
+  } catch (e) {
+    console.warn("Could not open external url:", e);
+    // Fallback to window.open if invoke fails
+    window.open(url, "_blank");
+  }
+}
+
+
