@@ -15,8 +15,6 @@ cask "tengga" do
     strategy :github_latest
   end
 
-  depends_on macos: ">= :catalina"
-
   app "Tengga.app"
 
   zap trash: [
