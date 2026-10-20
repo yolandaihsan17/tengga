@@ -9,32 +9,34 @@ function detectUserOS() {
     return {
       osName: "macOS",
       label: "Download for macOS",
-      sublabel: "Apple Silicon & Intel • .dmg (5.8 MB)",
-      url: "./downloads/Tengga.dmg?v=0.1.0",
-      download: "Tengga.dmg"
+      sublabel: "Apple Silicon & Intel • Universal .dmg",
+      url: "https://github.com/yolandaihsan17/tengga/releases/download/v0.1.1/Tengga_0.1.1_universal.dmg",
+      download: "Tengga_0.1.1_universal.dmg"
     };
   } else if (/Win/i.test(platform) || /Windows/i.test(ua)) {
     return {
       osName: "Windows",
       label: "Download for Windows",
-      sublabel: "64-bit • .exe & .msi",
-      url: "https://github.com/yolandaihsan17/tengga/releases/latest"
+      sublabel: "64-bit • .exe Installer",
+      url: "https://github.com/yolandaihsan17/tengga/releases/download/v0.1.1/Tengga_0.1.1_x64-setup.exe",
+      download: "Tengga_0.1.1_x64-setup.exe"
     };
   } else if (/Linux/i.test(platform) || /Linux/i.test(ua)) {
     return {
       osName: "Linux",
       label: "Download for Linux",
-      sublabel: "Debian, Ubuntu • .deb & .AppImage",
-      url: "https://github.com/yolandaihsan17/tengga/releases/latest"
+      sublabel: "Debian, Ubuntu • .deb Package",
+      url: "https://github.com/yolandaihsan17/tengga/releases/download/v0.1.1/Tengga_0.1.1_amd64.deb",
+      download: "Tengga_0.1.1_amd64.deb"
     };
   }
 
   return {
     osName: "All Platforms",
-    label: "Download Tengga for macOS",
-    sublabel: "macOS .dmg (5.8 MB)",
-    url: "./downloads/Tengga.dmg?v=0.1.0",
-    download: "Tengga.dmg"
+    label: "Download for macOS",
+    sublabel: "Apple Silicon & Intel • Universal .dmg",
+    url: "https://github.com/yolandaihsan17/tengga/releases/download/v0.1.1/Tengga_0.1.1_universal.dmg",
+    download: "Tengga_0.1.1_universal.dmg"
   };
 }
 
@@ -106,10 +108,30 @@ function initHeroPreviewInteractive() {
   }
 }
 
-// 4. Init Event Listeners
+// 4. Copy-to-clipboard for Homebrew terminal snippets
+function initBrewCopy() {
+  document.querySelectorAll(".btn-copy-brew").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const codeEl = btn.closest(".hero-brew-box, .os-card")?.querySelector("code");
+      const textToCopy = codeEl ? codeEl.textContent.trim() : "brew install --cask yolandaihsan17/tengga/tengga";
+      
+      navigator.clipboard.writeText(textToCopy).then(() => {
+        btn.classList.add("copied");
+        setTimeout(() => {
+          btn.classList.remove("copied");
+        }, 2000);
+      });
+    });
+  });
+}
+
+// 5. Init Event Listeners
 document.addEventListener("DOMContentLoaded", () => {
   initTheme();
   initHeroPreviewInteractive();
+  initBrewCopy();
 
   // Setup OS Download CTA
   const detected = detectUserOS();
@@ -122,7 +144,7 @@ document.addEventListener("DOMContentLoaded", () => {
       <span>${detected.label}</span>
     `;
     ctaBtn.onclick = () => {
-      if (detected.download) {
+      if (detected.download && detected.url.startsWith("./")) {
         const a = document.createElement("a");
         a.href = detected.url;
         a.download = detected.download;
