@@ -17,6 +17,12 @@ cask "tengga" do
 
   app "Tengga.app"
 
+  postflight do
+    system_command "/usr/bin/xattr",
+                   args: ["-dr", "com.apple.quarantine", "#{appdir}/Tengga.app"],
+                   must_succeed: false
+  end
+
   zap trash: [
     "~/Library/Application Support/com.tengga.desktop",
     "~/Library/Caches/com.tengga.desktop",
