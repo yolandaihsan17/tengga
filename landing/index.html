@@ -92,45 +92,20 @@
             Tengga gives you surgical, hunk-by-hunk control over uncommitted Git changes. Stage clean lines, discard debug noise, and multitask across worktrees in milliseconds—powered by Tauri and Rust.
           </p>
 
-          <div class="hero-actions-row">
-            <div class="download-split-wrapper">
-              <button id="hero-download-btn" class="btn-hero-primary">
-                <span class="material-symbols-rounded">download</span>
-                <span>Download for macOS</span>
-              </button>
-              <button id="btn-dropdown-toggle" class="btn-dropdown-toggle" title="Other operating systems">
-                <span class="material-symbols-rounded">expand_more</span>
-              </button>
-
-              <!-- Dropdown Options -->
-              <div id="download-dropdown-menu" class="download-dropdown-menu">
-                <a href="https://github.com/yolandaihsan17/tengga/releases/download/v0.1.1/Tengga_0.1.1_universal.dmg" target="_blank" rel="noopener noreferrer" class="dropdown-item">
-                  <span class="icon material-symbols-rounded">desktop_mac</span>
-                  <div class="item-info">
-                    <span class="item-title">macOS Universal</span>
-                    <span class="item-meta">Apple Silicon &amp; Intel • .dmg (v0.1.1)</span>
-                  </div>
-                </a>
-                <a href="https://github.com/yolandaihsan17/tengga/releases/download/v0.1.1/Tengga_0.1.1_x64-setup.exe" target="_blank" rel="noopener noreferrer" class="dropdown-item">
-                  <span class="icon material-symbols-rounded">desktop_windows</span>
-                  <div class="item-info">
-                    <span class="item-title">Windows 64-bit</span>
-                    <span class="item-meta">.exe Installer • v0.1.1</span>
-                  </div>
-                </a>
-                <a href="https://github.com/yolandaihsan17/tengga/releases/download/v0.1.1/Tengga_0.1.1_amd64.deb" target="_blank" rel="noopener noreferrer" class="dropdown-item">
-                  <span class="icon material-symbols-rounded">terminal</span>
-                  <div class="item-info">
-                    <span class="item-title">Linux</span>
-                    <span class="item-meta">.deb Package • v0.1.1</span>
-                  </div>
-                </a>
+          <!-- Dynamic Hero Actions by OS -->
+          <div class="hero-install-wrapper">
+            <!-- macOS Flow (Primary for Mac) -->
+            <div id="hero-mac-flow" class="hero-mac-flow">
+              <div class="hero-brew-header">
+                <div class="hero-brew-badge">
+                  <span class="material-symbols-rounded">verified</span>
+                  <span>RECOMMENDED FOR MACOS</span>
+                </div>
+                <p class="hero-brew-explainer">
+                  Bypasses Gatekeeper seamlessly. As an independent open-source project without Apple's paid Developer ID notarization, installing via Homebrew automatically clears quarantine attributes so Tengga opens immediately without security warnings.
+                </p>
               </div>
-            </div>
 
-            <!-- Homebrew Terminal Snippet -->
-            <div class="hero-brew-wrapper">
-              <span class="hero-brew-or">or</span>
               <div class="hero-brew-box">
                 <span class="brew-prompt">$</span>
                 <code class="brew-code">brew install --cask yolandaihsan17/tengga/tengga</code>
@@ -138,6 +113,73 @@
                   <span class="material-symbols-rounded copy-icon">content_copy</span>
                   <span class="material-symbols-rounded check-icon">check</span>
                 </button>
+              </div>
+
+              <div class="hero-secondary-row">
+                <a href="https://github.com/yolandaihsan17/tengga/releases/download/v0.1.1/Tengga_0.1.1_universal.dmg" target="_blank" rel="noopener noreferrer" class="hero-dmg-link">
+                  <span class="material-symbols-rounded">download</span>
+                  <span>Download for macOS (.dmg)</span>
+                </a>
+                <span class="hero-sep">•</span>
+                <div class="hero-other-platforms">
+                  <button id="btn-dropdown-toggle-mac" class="btn-other-os" type="button" title="Other operating systems">
+                    <span>Other platforms (Win / Linux)</span>
+                    <span class="material-symbols-rounded">expand_more</span>
+                  </button>
+                  <div id="download-dropdown-mac" class="download-dropdown-menu">
+                    <a href="https://github.com/yolandaihsan17/tengga/releases/download/v0.1.1/Tengga_0.1.1_x64-setup.exe" target="_blank" rel="noopener noreferrer" class="dropdown-item">
+                      <span class="icon material-symbols-rounded">desktop_windows</span>
+                      <div class="item-info">
+                        <span class="item-title">Windows 64-bit</span>
+                        <span class="item-meta">.exe Installer • v0.1.1</span>
+                      </div>
+                    </a>
+                    <a href="https://github.com/yolandaihsan17/tengga/releases/download/v0.1.1/Tengga_0.1.1_amd64.deb" target="_blank" rel="noopener noreferrer" class="dropdown-item">
+                      <span class="icon material-symbols-rounded">terminal</span>
+                      <div class="item-info">
+                        <span class="item-title">Linux</span>
+                        <span class="item-meta">.deb Package • v0.1.1</span>
+                      </div>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Standard Non-Mac Flow (Windows / Linux) -->
+            <div id="hero-standard-flow" class="hero-standard-flow" style="display: none;">
+              <div class="download-split-wrapper">
+                <button id="hero-download-btn" class="btn-hero-primary">
+                  <span class="material-symbols-rounded">download</span>
+                  <span>Download for Windows</span>
+                </button>
+                <button id="btn-dropdown-toggle-std" class="btn-dropdown-toggle" title="Other operating systems">
+                  <span class="material-symbols-rounded">expand_more</span>
+                </button>
+
+                <div id="download-dropdown-std" class="download-dropdown-menu">
+                  <a href="https://github.com/yolandaihsan17/tengga/releases/download/v0.1.1/Tengga_0.1.1_universal.dmg" target="_blank" rel="noopener noreferrer" class="dropdown-item">
+                    <span class="icon material-symbols-rounded">desktop_mac</span>
+                    <div class="item-info">
+                      <span class="item-title">macOS Universal</span>
+                      <span class="item-meta">Apple Silicon &amp; Intel • .dmg (v0.1.1)</span>
+                    </div>
+                  </a>
+                  <a href="https://github.com/yolandaihsan17/tengga/releases/download/v0.1.1/Tengga_0.1.1_x64-setup.exe" target="_blank" rel="noopener noreferrer" class="dropdown-item">
+                    <span class="icon material-symbols-rounded">desktop_windows</span>
+                    <div class="item-info">
+                      <span class="item-title">Windows 64-bit</span>
+                      <span class="item-meta">.exe Installer • v0.1.1</span>
+                    </div>
+                  </a>
+                  <a href="https://github.com/yolandaihsan17/tengga/releases/download/v0.1.1/Tengga_0.1.1_amd64.deb" target="_blank" rel="noopener noreferrer" class="dropdown-item">
+                    <span class="icon material-symbols-rounded">terminal</span>
+                    <div class="item-info">
+                      <span class="item-title">Linux</span>
+                      <span class="item-meta">.deb Package • v0.1.1</span>
+                    </div>
+                  </a>
+                </div>
               </div>
             </div>
           </div>
@@ -518,6 +560,7 @@
               <span class="material-symbols-rounded os-icon">terminal</span>
               <h3 class="os-title">Homebrew</h3>
               <p class="os-meta">Recommended for macOS • Zero quarantine</p>
+              <p class="os-card-explainer">Bypasses Gatekeeper automatically without Apple notarization prompts.</p>
               <div class="os-brew-box">
                 <code class="brew-code">brew install --cask yolandaihsan17/tengga/tengga</code>
                 <button class="btn-copy-brew" title="Copy command to clipboard">
@@ -532,6 +575,7 @@
               <span class="material-symbols-rounded os-icon">desktop_mac</span>
               <h3 class="os-title">macOS</h3>
               <p class="os-meta">Universal (Apple Silicon &amp; Intel) • v0.1.1</p>
+              <p class="os-card-explainer">Direct installer. First run requires right-click &gt; Open to approve.</p>
               <a href="https://github.com/yolandaihsan17/tengga/releases/download/v0.1.1/Tengga_0.1.1_universal.dmg" target="_blank" rel="noopener noreferrer" class="btn-os-download">
                 <span class="material-symbols-rounded">download</span>
                 Download .dmg
@@ -543,6 +587,7 @@
               <span class="material-symbols-rounded os-icon">desktop_windows</span>
               <h3 class="os-title">Windows</h3>
               <p class="os-meta">64-bit (Win 10/11) • v0.1.1</p>
+              <p class="os-card-explainer">Standard 64-bit installer for Windows 10 and 11 environments.</p>
               <a href="https://github.com/yolandaihsan17/tengga/releases/download/v0.1.1/Tengga_0.1.1_x64-setup.exe" target="_blank" rel="noopener noreferrer" class="btn-os-download">
                 <span class="material-symbols-rounded">download</span>
                 Download (.exe)
@@ -554,6 +599,7 @@
               <span class="material-symbols-rounded os-icon">terminal</span>
               <h3 class="os-title">Linux</h3>
               <p class="os-meta">Debian, Ubuntu (.deb) • v0.1.1</p>
+              <p class="os-card-explainer">Native Debian and Ubuntu package (.deb) with zero overhead.</p>
               <a href="https://github.com/yolandaihsan17/tengga/releases/download/v0.1.1/Tengga_0.1.1_amd64.deb" target="_blank" rel="noopener noreferrer" class="btn-os-download">
                 <span class="material-symbols-rounded">download</span>
                 Download (.deb)

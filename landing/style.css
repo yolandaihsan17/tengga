@@ -466,42 +466,72 @@ a {
   font-weight: 400;
 }
 
-/* Hero Homebrew Snippet */
-.hero-brew-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  max-width: 100%;
+/* Hero Install Container & Dynamic OS Flow */
+.hero-install-wrapper {
+  margin-bottom: 18px;
+  max-width: 540px;
 }
 
-.hero-brew-or {
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--text-muted);
-  flex-shrink: 0;
+.hero-mac-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hero-brew-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hero-brew-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--accent-emerald-soft);
+  color: var(--accent-emerald);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  width: fit-content;
+}
+
+.hero-brew-badge .material-symbols-rounded {
+  font-size: 14px;
+}
+
+.hero-brew-explainer {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin: 0;
 }
 
 .hero-brew-box {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 10px;
   background: var(--bg-card);
   border: 1px solid var(--border-default);
-  padding: 10px 16px;
+  padding: 11px 16px;
   border-radius: 12px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
   transition: all 0.15s ease;
-  max-width: 100%;
-  min-width: 0;
+  width: 100%;
 }
 
 .hero-brew-box:hover {
-  border-color: rgba(16, 185, 129, 0.4);
+  border-color: rgba(16, 185, 129, 0.5);
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.15);
 }
 
 .brew-prompt {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 700;
   color: var(--accent-emerald);
   user-select: none;
@@ -515,7 +545,69 @@ a {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  min-width: 0;
+  flex: 1;
+}
+
+.hero-secondary-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+
+.hero-dmg-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-color: var(--border-default);
+  transition: all 0.15s ease;
+}
+
+.hero-dmg-link:hover {
+  color: var(--text-primary);
+  text-decoration-color: var(--accent-emerald);
+}
+
+.hero-dmg-link .material-symbols-rounded {
+  font-size: 17px;
+  color: var(--accent-emerald);
+}
+
+.hero-sep {
+  color: var(--border-subtle);
+  user-select: none;
+}
+
+.hero-other-platforms {
+  position: relative;
+}
+
+.btn-other-os {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+  transition: color 0.15s ease;
+}
+
+.btn-other-os:hover {
+  color: var(--text-primary);
+}
+
+.btn-other-os .material-symbols-rounded {
+  font-size: 16px;
 }
 
 .btn-copy-brew {
@@ -1275,7 +1367,15 @@ a {
 .os-meta {
   font-size: 12.5px;
   color: var(--text-muted);
-  margin-bottom: 22px;
+  margin-bottom: 8px;
+}
+
+.os-card-explainer {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin-bottom: 20px;
+  min-height: 32px;
 }
 
 .btn-os-download {
@@ -1395,12 +1495,11 @@ a {
   .cta-banner-title { font-size: 32px; }
   .stat-ribbon-container { grid-template-columns: 1fr; }
   .download-os-grid { grid-template-columns: 1fr; }
-  .hero-actions-row { flex-direction: column; align-items: stretch; gap: 12px; }
-  .download-split-wrapper { width: 100%; }
-  .btn-hero-primary { flex: 1; }
-  .hero-brew-wrapper { width: 100%; }
-  .hero-brew-box { flex: 1; min-width: 0; padding: 8px 12px; justify-content: space-between; }
+  .hero-install-wrapper { width: 100%; }
+  .hero-brew-box { padding: 9px 12px; }
   .hero-brew-box .brew-code { font-size: 11px; }
+  .hero-secondary-row { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .hero-sep { display: none; }
   .footer-container { grid-template-columns: 1fr; }
   .nav-links { display: none; }
 }

@@ -133,45 +133,49 @@ document.addEventListener("DOMContentLoaded", () => {
   initHeroPreviewInteractive();
   initBrewCopy();
 
-  // Setup OS Download CTA
+  // Setup OS-specific Hero Actions
   const detected = detectUserOS();
+  const macFlow = document.getElementById("hero-mac-flow");
+  const stdFlow = document.getElementById("hero-standard-flow");
   const ctaBtn = document.getElementById("hero-download-btn");
   const ctaSub = document.getElementById("hero-download-sub");
 
-  if (ctaBtn) {
-    ctaBtn.innerHTML = `
-      <span class="material-symbols-rounded">download</span>
-      <span>${detected.label}</span>
-    `;
-    ctaBtn.onclick = () => {
-      if (detected.download && detected.url.startsWith("./")) {
-        const a = document.createElement("a");
-        a.href = detected.url;
-        a.download = detected.download;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      } else {
+  if (detected.osName === "Windows" || detected.osName === "Linux") {
+    if (macFlow) macFlow.style.display = "none";
+    if (stdFlow) stdFlow.style.display = "block";
+    if (ctaBtn) {
+      ctaBtn.innerHTML = `
+        <span class="material-symbols-rounded">download</span>
+        <span>${detected.label}</span>
+      `;
+      ctaBtn.onclick = () => {
         window.open(detected.url, "_blank");
-      }
-    };
+      };
+    }
+    if (ctaSub) {
+      ctaSub.textContent = detected.sublabel;
+    }
+  } else {
+    // macOS (default)
+    if (macFlow) macFlow.style.display = "flex";
+    if (stdFlow) stdFlow.style.display = "none";
   }
 
-  if (ctaSub) {
-    ctaSub.textContent = detected.sublabel;
-  }
-
-  // Dropdown Toggle
-  const dropdownToggle = document.getElementById("btn-dropdown-toggle");
-  const dropdownMenu = document.getElementById("download-dropdown-menu");
-  if (dropdownToggle && dropdownMenu) {
-    dropdownToggle.addEventListener("click", (e) => {
+  // Setup dropdown menus
+  document.querySelectorAll("[id^='btn-dropdown-toggle']").forEach((toggleBtn) => {
+    toggleBtn.addEventListener("click", (e) => {
+      e.preventDefault();
       e.stopPropagation();
-      dropdownMenu.classList.toggle("show");
+      const parent = toggleBtn.closest(".hero-other-platforms, .download-split-wrapper");
+      const menu = parent ? parent.querySelector(".download-dropdown-menu") : null;
+      if (menu) {
+        menu.classList.toggle("show");
+      }
     });
+  });
 
-    document.addEventListener("click", () => {
-      dropdownMenu.classList.remove("show");
-    });
-  }
+  // Close open dropdowns on click outside
+  document.addEventListener("click", () => {
+    document.querySelectorAll(".download-dropdown-menu.show").forEach((m) => m.classList.remove("show"));
+  });
 });
