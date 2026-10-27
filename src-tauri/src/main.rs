@@ -15,7 +15,7 @@ use tauri::{Manager, State};
 #[derive(Default)]
 struct AppState {
     watchers: Mutex<HashMap<String, notify::RecommendedWatcher>>,
-    hunk_patches: Mutex<HashMap<String, HunkPatch>>,
+    hunk_patches: Mutex<HashMap<String, HashMap<String, HunkPatch>>>,
 }
 
 #[tauri::command]
@@ -28,10 +28,28 @@ fn start_watcher(app: tauri::AppHandle, state: State<AppState>, path: String) ->
     let repo = PathBuf::from(&path);
     let common_dir = git::git_common_dir(&repo).ok();
     let mut watchers = state.watchers.lock().unwrap();
-    if let std::collections::hash_map::Entry::Vacant(e) = watchers.entry(path) {
-        let w = watcher::watch(app, &repo, common_dir.as_deref()).map_err(|e| e.to_string())?;
-        e.insert(w);
-    }
+    // Drop any existing watchers before starting the new one for the active worktree/repository
+    watchers.clear();
+    let w = watcher::watch(app, &repo, common_dir.as_deref()).map_err(|e| e.to_string())?;
+    watchers.insert(path, w);
+    Ok(())
+}
+
+#[tauri::command]
+fn stop_watcher(state: State<AppState>, path: String) -> Result<(), String> {
+    let mut watchers = state.watchers.lock().unwrap();
+    watchers.remove(&path);
+    let mut patches = state.hunk_patches.lock().unwrap();
+    patches.remove(&path);
+    Ok(())
+}
+
+#[tauri::command]
+fn stop_all_watchers(state: State<AppState>) -> Result<(), String> {
+    let mut watchers = state.watchers.lock().unwrap();
+    watchers.clear();
+    let mut patches = state.hunk_patches.lock().unwrap();
+    patches.clear();
     Ok(())
 }
 
@@ -158,9 +176,11 @@ fn get_diff(
         }
     };
 
-    let mut patches = state.hunk_patches.lock().unwrap();
+    let mut patches_by_repo = state.hunk_patches.lock().unwrap();
+    let repo_patches = patches_by_repo.entry(repo_path).or_default();
+    repo_patches.clear();
     for (id, p) in all_patches {
-        patches.insert(id, p);
+        repo_patches.insert(id, p);
     }
 
     Ok(all_files)
@@ -168,8 +188,11 @@ fn get_diff(
 
 #[tauri::command]
 fn accept_hunk(state: State<AppState>, repo_path: String, hunk_id: String) -> Result<(), String> {
-    let patches = state.hunk_patches.lock().unwrap();
-    let patch = patches.get(&hunk_id).ok_or("hunk not found, try reopening the folder")?;
+    let patches_by_repo = state.hunk_patches.lock().unwrap();
+    let patch = patches_by_repo
+        .get(&repo_path)
+        .and_then(|m| m.get(&hunk_id))
+        .ok_or("hunk not found, try reopening the folder")?;
     if patch.source == "staged" {
         return Ok(()); // already staged, nothing to do
     }
@@ -179,8 +202,11 @@ fn accept_hunk(state: State<AppState>, repo_path: String, hunk_id: String) -> Re
 
 #[tauri::command]
 fn reject_hunk(state: State<AppState>, repo_path: String, hunk_id: String) -> Result<(), String> {
-    let patches = state.hunk_patches.lock().unwrap();
-    let patch = patches.get(&hunk_id).ok_or("hunk not found, try reopening the folder")?;
+    let patches_by_repo = state.hunk_patches.lock().unwrap();
+    let patch = patches_by_repo
+        .get(&repo_path)
+        .and_then(|m| m.get(&hunk_id))
+        .ok_or("hunk not found, try reopening the folder")?;
     let full_patch = format!("{}{}", patch.file_header, patch.hunk_text);
     let cached = patch.source == "staged";
     git::apply_patch(&PathBuf::from(repo_path), &full_patch, cached, true)
@@ -459,6 +485,8 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             validate_git_repo,
             start_watcher,
+            stop_watcher,
+            stop_all_watchers,
             get_diff,
             accept_hunk,
             reject_hunk,

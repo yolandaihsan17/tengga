@@ -29,6 +29,8 @@
     discardAll,
     getWorktrees,
     startWatcher,
+    stopWatcher,
+    stopAllWatchers,
     onChangesDetected,
     onWorktreesChanged,
     setWindowBlurIntensity,
@@ -794,6 +796,7 @@
 
     closedWorktreePaths.add(path);
     closedWorktreePaths = new Set(closedWorktreePaths);
+    stopWatcher(path).catch(() => {});
     if (mainWt) {
       saveClosedWorktrees(mainWt.path, closedWorktreePaths);
     }
@@ -997,6 +1000,7 @@
     if (typeof window !== "undefined") {
       window.removeEventListener("focus", handleWindowFocus);
     }
+    stopAllWatchers().catch(() => {});
   });
 </script>
 

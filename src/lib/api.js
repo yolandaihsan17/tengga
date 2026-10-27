@@ -91,6 +91,14 @@ export async function startWatcher(path) {
   return invoke("start_watcher", { path });
 }
 
+export async function stopWatcher(path) {
+  return invoke("stop_watcher", { path });
+}
+
+export async function stopAllWatchers() {
+  return invoke("stop_all_watchers");
+}
+
 export function onChangesDetected(callback) {
   return listen("changes-detected", callback);
 }
