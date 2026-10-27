@@ -1,7 +1,7 @@
 cask "tengga" do
   arch arm: "aarch64", intel: "x64"
 
-  version "0.1.1"
+  version "0.1.2"
   sha256 arm:   "e4a46dbdfc826296a14e60d021b8378f625e51a5b1dbae640e28008b198fb14d",
          intel: "93b410d18f85b08f88c7d0feaaac3a06f99924d43e5079ae64091f5be684beee"
 

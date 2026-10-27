@@ -10,24 +10,24 @@ function detectUserOS() {
       osName: "macOS",
       label: "Download for macOS",
       sublabel: "Apple Silicon & Intel • Universal .dmg",
-      url: "https://github.com/yolandaihsan17/tengga/releases/download/v0.1.1/Tengga_0.1.1_universal.dmg",
-      download: "Tengga_0.1.1_universal.dmg"
+      url: "https://github.com/yolandaihsan17/tengga/releases/download/v0.1.2/Tengga_0.1.2_universal.dmg",
+      download: "Tengga_0.1.2_universal.dmg"
     };
   } else if (/Win/i.test(platform) || /Windows/i.test(ua)) {
     return {
       osName: "Windows",
       label: "Download for Windows",
       sublabel: "64-bit • .exe Installer",
-      url: "https://github.com/yolandaihsan17/tengga/releases/download/v0.1.1/Tengga_0.1.1_x64-setup.exe",
-      download: "Tengga_0.1.1_x64-setup.exe"
+      url: "https://github.com/yolandaihsan17/tengga/releases/download/v0.1.2/Tengga_0.1.2_x64-setup.exe",
+      download: "Tengga_0.1.2_x64-setup.exe"
     };
   } else if (/Linux/i.test(platform) || /Linux/i.test(ua)) {
     return {
       osName: "Linux",
       label: "Download for Linux",
       sublabel: "Debian, Ubuntu • .deb Package",
-      url: "https://github.com/yolandaihsan17/tengga/releases/download/v0.1.1/Tengga_0.1.1_amd64.deb",
-      download: "Tengga_0.1.1_amd64.deb"
+      url: "https://github.com/yolandaihsan17/tengga/releases/download/v0.1.2/Tengga_0.1.2_amd64.deb",
+      download: "Tengga_0.1.2_amd64.deb"
     };
   }
 
@@ -35,8 +35,8 @@ function detectUserOS() {
     osName: "All Platforms",
     label: "Download for macOS",
     sublabel: "Apple Silicon & Intel • Universal .dmg",
-    url: "https://github.com/yolandaihsan17/tengga/releases/download/v0.1.1/Tengga_0.1.1_universal.dmg",
-    download: "Tengga_0.1.1_universal.dmg"
+    url: "https://github.com/yolandaihsan17/tengga/releases/download/v0.1.2/Tengga_0.1.2_universal.dmg",
+    download: "Tengga_0.1.2_universal.dmg"
   };
 }
 

@@ -7,7 +7,7 @@
   *Review uncommitted changes hunk-by-hunk. Accept, stage, and commit with precision—without Electron overhead.*
 
   [![Website](https://img.shields.io/badge/website-tengga.oan.workers.dev-10b981?style=flat-square)](https://tengga.oan.workers.dev/)
-  [![Release](https://img.shields.io/badge/release-v0.1.0-blue?style=flat-square)](https://github.com/yolandaihsan17/tengga/releases)
+  [![Release](https://img.shields.io/badge/release-v0.1.2-blue?style=flat-square)](https://github.com/yolandaihsan17/tengga/releases)
   [![Tauri](https://img.shields.io/badge/Tauri-v2.0-orange?style=flat-square&logo=tauri)](https://tauri.app/)
   [![Rust](https://img.shields.io/badge/Rust-2021_Edition-black?style=flat-square&logo=rust)](https://www.rust-lang.org/)
   [![Svelte](https://img.shields.io/badge/Svelte-v4.2-ff3e00?style=flat-square&logo=svelte)](https://svelte.dev/)

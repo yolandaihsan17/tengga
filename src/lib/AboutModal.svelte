@@ -40,7 +40,7 @@
         <div class="app-title-group">
           <div class="title-row">
             <h2 class="app-name">Tengga</h2>
-            <span class="version-badge">v0.1.0</span>
+            <span class="version-badge">v0.1.2</span>
           </div>
           <p class="app-tagline">The Lightweight Git Diff Reviewer</p>
         </div>
