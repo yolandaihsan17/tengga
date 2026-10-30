@@ -26,8 +26,34 @@
   export let onStageAll = () => {};
   export let onUnstageAll = () => {};
   export let onDiscardAll = () => {};
+  export let onCommit = async () => {};
   export let onRequestRepoFiles = () => {};
   export let disabled = false;
+
+  const isMac = typeof navigator !== "undefined" && /(Mac|iPhone|iPod|iPad)/i.test(navigator.userAgent || "");
+  let commitMessage = "";
+  let isSubmittingCommit = false;
+
+  async function handleSubmitCommit() {
+    if (!commitMessage.trim() || isSubmittingCommit || disabled) return;
+    if (stagedPaths.length === 0) return;
+    isSubmittingCommit = true;
+    try {
+      const ok = await onCommit(commitMessage);
+      if (ok) {
+        commitMessage = "";
+      }
+    } finally {
+      isSubmittingCommit = false;
+    }
+  }
+
+  function handleCommitKeydown(e) {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+      e.preventDefault();
+      handleSubmitCommit();
+    }
+  }
 
   let isStagedExpanded = true;
   let isUnstagedExpanded = true;
@@ -208,17 +234,25 @@
   $: totalMatchedFiles = groupedSearchResults.length;
   $: totalMatchedCount = searchResults.total_count;
 
-  // When files change, by default in Changes tab all folders should be open/uncollapsed
+  // When files change, by default in Changes tab folders are open only if total files <= 80
   $: if (files !== prevFiles) {
     prevFiles = files;
-    expandedChangesFolders = computeAllFolderPaths(files);
+    if (files.length <= 80) {
+      expandedChangesFolders = computeAllFolderPaths(files);
+    } else {
+      expandedChangesFolders = {};
+    }
   }
 
   // Reset all folders to collapsed when switching repository
   $: if (repoFiles !== prevRepoFiles) {
     prevRepoFiles = repoFiles;
     expandedAllFolders = {};
-    expandedChangesFolders = computeAllFolderPaths(files);
+    if (files.length <= 80) {
+      expandedChangesFolders = computeAllFolderPaths(files);
+    } else {
+      expandedChangesFolders = {};
+    }
   }
 
   // Active expanded folders based on current scope
@@ -294,6 +328,8 @@
     }
   }
 
+  const MAX_VISIBLE_TREE_PATHS = 350;
+
   // Filter based on scope (all files vs changes only) and text search
   $: filteredPaths = unifiedPaths.filter((path) => {
     const hasDiff = diffMap.has(path) || (dirtyFiles && dirtyFiles.has(path));
@@ -323,9 +359,17 @@
     return true;
   });
 
-  $: stagedTreeData = (!baseBranch && filterScope === "changes") ? buildTree(stagedFilteredPaths, diffMap, dirtyFiles) : [];
-  $: unstagedTreeData = (!baseBranch && filterScope === "changes") ? buildTree(unstagedFilteredPaths, diffMap, dirtyFiles) : [];
-  $: treeData = (filterScope === "all" || Boolean(baseBranch)) ? buildTree(filteredPaths, diffMap, dirtyFiles) : [];
+  $: isStagedCapped = stagedFilteredPaths.length > MAX_VISIBLE_TREE_PATHS;
+  $: isUnstagedCapped = unstagedFilteredPaths.length > MAX_VISIBLE_TREE_PATHS;
+  $: isUnifiedCapped = filteredPaths.length > MAX_VISIBLE_TREE_PATHS;
+
+  $: visibleStagedPaths = isStagedCapped ? stagedFilteredPaths.slice(0, MAX_VISIBLE_TREE_PATHS) : stagedFilteredPaths;
+  $: visibleUnstagedPaths = isUnstagedCapped ? unstagedFilteredPaths.slice(0, MAX_VISIBLE_TREE_PATHS) : unstagedFilteredPaths;
+  $: visibleFilteredPaths = isUnifiedCapped ? filteredPaths.slice(0, MAX_VISIBLE_TREE_PATHS) : filteredPaths;
+
+  $: stagedTreeData = (!baseBranch && filterScope === "changes") ? buildTree(visibleStagedPaths, diffMap, dirtyFiles) : [];
+  $: unstagedTreeData = (!baseBranch && filterScope === "changes") ? buildTree(visibleUnstagedPaths, diffMap, dirtyFiles) : [];
+  $: treeData = (filterScope === "all" || Boolean(baseBranch)) ? buildTree(visibleFilteredPaths, diffMap, dirtyFiles) : [];
 </script>
 
 <div class="sidebar-wrapper">
@@ -601,6 +645,11 @@
                 {/if}
               </div>
             {/each}
+            {#if isUnstagedCapped}
+              <div class="tree-cap-notice">
+                Showing first {MAX_VISIBLE_TREE_PATHS} of {unstagedFilteredPaths.length} changed files.
+              </div>
+            {/if}
           </div>
         {/if}
       </div>
@@ -649,6 +698,11 @@
                   {onUnstage}
                 />
               {/each}
+              {#if isStagedCapped}
+                <div class="tree-cap-notice">
+                  Showing first {MAX_VISIBLE_TREE_PATHS} of {stagedFilteredPaths.length} staged files.
+                </div>
+              {/if}
             </div>
           {/if}
         </div>
@@ -710,6 +764,11 @@
                 {onDiscard}
               />
             {/each}
+            {#if isUnstagedCapped}
+              <div class="tree-cap-notice">
+                Showing first {MAX_VISIBLE_TREE_PATHS} of {unstagedFilteredPaths.length} changed files.
+              </div>
+            {/if}
           </div>
         {/if}
       </div>
@@ -727,6 +786,11 @@
             {disabled}
           />
         {/each}
+        {#if isUnifiedCapped}
+          <div class="tree-cap-notice">
+            Showing first {MAX_VISIBLE_TREE_PATHS} of {filteredPaths.length} files. Use filter to narrow down.
+          </div>
+        {/if}
       </div>
     {/if}
 
@@ -751,6 +815,33 @@
       {/if}
     {/if}
   </div>
+
+  <!-- Commit Box (visible in changes mode when not in branch comparison) -->
+  {#if filterScope === "changes" && !baseBranch}
+    <div class="sidebar-commit-box">
+      <textarea
+        class="commit-textarea"
+        bind:value={commitMessage}
+        on:keydown={handleCommitKeydown}
+        placeholder={stagedPaths.length > 0
+          ? (isMac ? "Commit message (Cmd+Enter to commit)" : "Commit message (Ctrl+Enter to commit)")
+          : "Stage changes above to commit"}
+        disabled={disabled || isSubmittingCommit || stagedPaths.length === 0}
+        rows="2"
+      ></textarea>
+      <button
+        class="commit-btn"
+        disabled={disabled || isSubmittingCommit || stagedPaths.length === 0 || !commitMessage.trim()}
+        on:click={handleSubmitCommit}
+        title={stagedPaths.length > 0 ? (isMac ? "Commit staged changes (Cmd+Enter)" : "Commit staged changes (Ctrl+Enter)") : "No staged changes to commit"}
+      >
+        <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor">
+          <path fill-rule="evenodd" d="M10.5 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0zm.75 0a3.25 3.25 0 1 0-6.5 0 3.25 3.25 0 0 0 6.5 0zM1 7.25h3.086a4.002 4.002 0 0 1 7.828 0H15a.75.75 0 0 1 0 1.5h-3.086a4.002 4.002 0 0 1-7.828 0H1a.75.75 0 0 1 0-1.5z"/>
+        </svg>
+        <span>{isSubmittingCommit ? "Committing..." : `Commit (${stagedPaths.length})`}</span>
+      </button>
+    </div>
+  {/if}
 
   <!-- Bottom status bar & theme switcher -->
   <div class="sidebar-footer">
@@ -1064,6 +1155,79 @@
     text-align: center;
     color: var(--text-muted);
     font-size: 12px;
+  }
+
+  .sidebar-commit-box {
+    padding: 10px 12px;
+    background: var(--bg-topbar);
+    border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.05));
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .commit-textarea {
+    width: 100%;
+    min-height: 48px;
+    max-height: 120px;
+    padding: 8px 10px;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 12px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.4;
+    resize: vertical;
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease;
+  }
+
+  .commit-textarea:focus {
+    border-color: var(--accent-emerald);
+  }
+
+  .commit-textarea::placeholder {
+    color: var(--text-dim);
+    font-size: 11.5px;
+  }
+
+  .commit-textarea:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .commit-btn {
+    width: 100%;
+    height: 30px;
+    padding: 0 10px;
+    border-radius: 6px;
+    background: var(--accent-emerald);
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 600;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+  }
+
+  .commit-btn:hover:not(:disabled) {
+    background: var(--accent-emerald-dark, #059669);
+    filter: brightness(1.08);
+  }
+
+  .commit-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background: var(--bg-subtle);
+    color: var(--text-muted);
   }
 
   .sidebar-footer {
@@ -1546,5 +1710,16 @@
     color: inherit;
     border-radius: 2px;
     padding: 0 1px;
+  }
+
+  .tree-cap-notice {
+    padding: 8px 12px;
+    margin: 6px 8px;
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--text-muted);
+    background: var(--bg-hover);
+    border-radius: 4px;
+    border-left: 2px solid var(--accent);
   }
 </style>

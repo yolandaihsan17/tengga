@@ -5,11 +5,13 @@
   import SettingsModal from "./lib/SettingsModal.svelte";
   import AboutModal from "./lib/AboutModal.svelte";
   import WorktreeTabs from "./lib/WorktreeTabs.svelte";
+  import ReviewNotesModal from "./lib/ReviewNotesModal.svelte";
   import QuickOpen from "./lib/QuickOpen.svelte";
   import { sortBranchesWithRelevance } from "./lib/branchUtils.js";
   import {
     pickFolder,
     getDiff,
+    getFileDiff,
     getBranchComparisonInfo,
     getRepoFiles,
     getFileContent,
@@ -21,6 +23,7 @@
     switchBranch,
     pullBranch,
     pushBranch,
+    commitChanges,
     stageFile,
     unstageFile,
     discardFile,
@@ -28,6 +31,10 @@
     unstageAll,
     discardAll,
     getWorktrees,
+    createWorktree,
+    removeWorktree,
+    pruneWorktrees,
+    openInTerminal,
     startWatcher,
     stopWatcher,
     stopAllWatchers,
@@ -242,18 +249,41 @@
     targetQuery = query;
   }
 
-  $: isGitOperating = Boolean(pullingBranch || pushingBranch || isSwitchingBranch);
+  let isCommitting = false;
+  $: isGitOperating = Boolean(pullingBranch || pushingBranch || isSwitchingBranch || isCommitting);
   $: gitOperationLabel = pullingBranch
     ? `Pulling '${pullingBranch}' from remote...`
     : pushingBranch
     ? `Pushing '${pushingBranch}' to remote...`
     : isSwitchingBranch
     ? "Switching branch..."
+    : isCommitting
+    ? "Committing staged changes..."
     : null;
 
   $: repoName = repoPath ? repoPath.split("/").filter(Boolean).pop() : null;
   $: diffFile = files.find((f) => f.path === selectedFile);
   $: currentFile = diffFile || (selectedFile ? { path: selectedFile, hunks: [], additions: 0, deletions: 0, is_binary: false } : null);
+
+  let isLoadingFileDiff = false;
+  async function loadFileDiffOnDemand(filePath) {
+    if (!repoPath || !filePath || isLoadingFileDiff) return;
+    isLoadingFileDiff = true;
+    try {
+      const singleDiff = await getFileDiff(repoPath, filePath, baseBranch);
+      if (singleDiff) {
+        files = files.map((f) => (f.path === filePath ? singleDiff : f));
+      }
+    } catch (e) {
+      console.warn("Could not load diff on demand for:", filePath, e);
+    } finally {
+      isLoadingFileDiff = false;
+    }
+  }
+
+  $: if (diffFile && diffFile.hunks_truncated && diffFile.hunks.length === 0 && !isLoadingFileDiff) {
+    loadFileDiffOnDemand(diffFile.path);
+  }
 
   $: filteredBranches = sortBranchesWithRelevance(availableBranches, branchFilter, null);
   $: filteredCompareBranches = sortBranchesWithRelevance(availableBranches, compareFilter, currentBranch);
@@ -301,9 +331,25 @@
     }
   }
 
-  async function refresh() {
+  let refreshPending = false;
+  let lastRefreshTime = 0;
+
+  async function refresh(force = false) {
     if (!repoPath) return;
+
+    const now = Date.now();
+    if (!force && now - lastRefreshTime < 600) {
+      refreshPending = true;
+      return;
+    }
+
+    if (isRefreshing) {
+      refreshPending = true;
+      return;
+    }
+
     isRefreshing = true;
+    lastRefreshTime = now;
     try {
       const [diffList, branch, compInfo] = await Promise.all([
         getDiff(repoPath, baseBranch),
@@ -326,6 +372,10 @@
       error = String(e);
     } finally {
       isRefreshing = false;
+      if (refreshPending) {
+        refreshPending = false;
+        setTimeout(() => refresh(true), 350);
+      }
     }
   }
 
@@ -377,6 +427,28 @@
       error = `Push '${branchName}' failed: ${String(e)}`;
     } finally {
       pushingBranch = null;
+    }
+  }
+
+  async function handleCommit(message) {
+    if (!repoPath || !message || !message.trim() || isGitOperating) return false;
+    isCommitting = true;
+    error = null;
+    statusMessage = null;
+    try {
+      const result = await commitChanges(repoPath, message.trim());
+      setStatus(result || "Successfully committed changes");
+      await refresh();
+      if (selectedFile && !files.some((f) => f.path === selectedFile)) {
+        selectedFile = null;
+        fileContent = null;
+      }
+      return true;
+    } catch (e) {
+      error = `Commit failed: ${String(e)}`;
+      return false;
+    } finally {
+      isCommitting = false;
     }
   }
 
@@ -807,6 +879,118 @@
         selectWorktree(remaining[0].path);
       }
     }
+  }
+
+  async function handleCreateWorktree(targetPath, branch, newBranch) {
+    if (!repoPath || isGitOperating) return;
+    try {
+      const createdPath = await createWorktree(repoPath, targetPath, branch, newBranch);
+      setStatus(`Worktree created: ${branch}`);
+      await loadWorktrees(repoPath, false);
+      if (createdPath) {
+        await selectWorktree(createdPath);
+      }
+    } catch (e) {
+      error = `Create worktree failed: ${String(e)}`;
+      throw e;
+    }
+  }
+
+  async function handleRemoveWorktree(targetPath, force = false) {
+    if (!repoPath || isGitOperating) return;
+    try {
+      await removeWorktree(repoPath, targetPath, force);
+      setStatus(`Removed worktree: ${targetPath}`);
+      if (targetPath === repoPath) {
+        const mainWt = worktrees.find((w) => w.is_main);
+        if (mainWt) {
+          await selectWorktree(mainWt.path);
+        }
+      }
+      await loadWorktrees(repoPath, false);
+    } catch (e) {
+      error = `Remove worktree failed: ${String(e)}`;
+      throw e;
+    }
+  }
+
+  async function handlePruneWorktrees() {
+    if (!repoPath || isGitOperating) return;
+    try {
+      await pruneWorktrees(repoPath);
+      setStatus("Pruned stale worktrees");
+      await loadWorktrees(repoPath, false);
+    } catch (e) {
+      error = `Prune worktrees failed: ${String(e)}`;
+      throw e;
+    }
+  }
+
+  async function handleOpenTerminal(targetPath) {
+    const p = targetPath || repoPath;
+    if (!p) return;
+    try {
+      await openInTerminal(p);
+    } catch (e) {
+      error = `Could not open terminal: ${String(e)}`;
+    }
+  }
+
+  // Code Review Notes
+  let reviewNotes = [];
+  let isReviewNotesOpen = false;
+
+  function getNotesStorageKey(path) {
+    if (!path) return null;
+    return `tengga_review_notes_${path.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+  }
+
+  function loadReviewNotes(path) {
+    const key = getNotesStorageKey(path);
+    if (!key) {
+      reviewNotes = [];
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(key);
+      reviewNotes = raw ? JSON.parse(raw) : [];
+    } catch {
+      reviewNotes = [];
+    }
+  }
+
+  function saveReviewNotes(path, notes) {
+    const key = getNotesStorageKey(path);
+    if (!key) return;
+    try {
+      localStorage.setItem(key, JSON.stringify(notes));
+    } catch (e) {
+      console.warn("Failed to persist review notes:", e);
+    }
+  }
+
+  function handleAddReviewNote(note) {
+    const newNote = {
+      ...note,
+      id: "note_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7),
+      createdAt: Date.now(),
+    };
+    reviewNotes = [newNote, ...reviewNotes];
+    saveReviewNotes(repoPath, reviewNotes);
+  }
+
+  function handleDeleteReviewNote(noteId) {
+    reviewNotes = reviewNotes.filter((n) => n.id !== noteId);
+    saveReviewNotes(repoPath, reviewNotes);
+  }
+
+  function handleClearReviewNotes() {
+    reviewNotes = [];
+    saveReviewNotes(repoPath, reviewNotes);
+  }
+
+  $: if (repoPath) {
+    loadReviewNotes(repoPath);
   }
 
   function handleWindowFocus() {
@@ -1285,6 +1469,19 @@
             <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
           </svg>
         </button>
+        {#if reviewNotes.length > 0}
+          <button
+            class="action-icon-btn notes-btn has-notes"
+            disabled={isGitOperating}
+            on:click={() => (isReviewNotesOpen = true)}
+            title="Review Notes ({reviewNotes.length})"
+          >
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor">
+              <path fill-rule="evenodd" d="M1 8c0-3.866 3.134-7 7-7s7 3.134 7 7-3.134 7-7 7a6.96 6.96 0 0 1-3.668-1.042L1.5 15l1.042-2.832A6.96 6.96 0 0 1 1 8zm7-5.5a5.5 5.5 0 1 0 0 11 5.474 5.474 0 0 0 2.964-.868.75.75 0 0 1 .65-.078l1.716.63-.63-1.716a.75.75 0 0 1 .078-.65A5.474 5.474 0 0 0 13.5 8 5.5 5.5 0 0 0 8 2.5z"/>
+            </svg>
+            <span class="topbar-badge">{reviewNotes.length}</span>
+          </button>
+        {/if}
       {/if}
 
       <button class="action-btn" disabled={isGitOperating} on:click={openFolder}>
@@ -1316,6 +1513,10 @@
       onSelect={selectWorktree}
       onClose={closeWorktreeTab}
       onReorder={handleReorderWorktrees}
+      onCreateWorktree={handleCreateWorktree}
+      onRemoveWorktree={handleRemoveWorktree}
+      onPruneWorktrees={handlePruneWorktrees}
+      onOpenTerminal={handleOpenTerminal}
     />
   {/if}
 
@@ -1371,6 +1572,7 @@
         onStageAll={handleStageAll}
         onUnstageAll={handleUnstageAll}
         onDiscardAll={handleDiscardAll}
+        onCommit={handleCommit}
         onRequestRepoFiles={handleRequestRepoFiles}
       />
     </aside>
@@ -1401,6 +1603,7 @@
         {baseBranch}
         {targetLine}
         {targetQuery}
+        {reviewNotes}
         disabled={isGitOperating}
         onAccept={handleAccept}
         onReject={handleReject}
@@ -1410,6 +1613,9 @@
         onStageFile={handleStage}
         onUnstageFile={handleUnstage}
         onDiscardFile={handleDiscard}
+        onAddNote={handleAddReviewNote}
+        onDeleteNote={handleDeleteReviewNote}
+        onOpenReviewNotes={() => (isReviewNotesOpen = true)}
       />
     </section>
   </div>
@@ -1436,6 +1642,20 @@
       {repoFiles}
       onSelect={(p) => handleSelectFile(p)}
       onClose={() => (isQuickOpenOpen = false)}
+    />
+  {/if}
+
+  <!-- Review Notes & AI Prompt Modal -->
+  {#if isReviewNotesOpen}
+    <ReviewNotesModal
+      notes={reviewNotes}
+      onClose={() => (isReviewNotesOpen = false)}
+      onDeleteNote={handleDeleteReviewNote}
+      onClearAll={handleClearReviewNotes}
+      onSelectFile={(p, line) => {
+        selectedFile = p;
+        targetLine = line;
+      }}
     />
   {/if}
 </main>
@@ -1473,8 +1693,6 @@
     user-select: none;
     flex-shrink: 0;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-    backdrop-filter: var(--backdrop-filter, blur(24px));
-    -webkit-backdrop-filter: var(--backdrop-filter, blur(24px));
   }
 
   .app-topbar.is-mac {
@@ -2031,6 +2249,21 @@
     color: var(--accent-emerald);
   }
 
+  .notes-btn.has-notes {
+    color: var(--accent-emerald);
+    background: var(--accent-emerald-soft);
+    width: auto;
+    border-radius: 9999px;
+    padding: 0 10px;
+    gap: 4px;
+  }
+
+  .topbar-badge {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent-emerald);
+  }
+
   .settings-btn:hover {
     transform: rotate(45deg);
   }
@@ -2179,8 +2412,6 @@
     display: flex;
     flex-direction: column;
     background: var(--bg-sidebar);
-    backdrop-filter: var(--backdrop-filter, blur(24px));
-    -webkit-backdrop-filter: var(--backdrop-filter, blur(24px));
     overflow: hidden;
   }
 

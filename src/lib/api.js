@@ -15,6 +15,10 @@ export async function getDiff(repoPath, baseBranch = null) {
   return invoke("get_diff", { repoPath, baseBranch });
 }
 
+export async function getFileDiff(repoPath, filePath, baseBranch = null) {
+  return invoke("get_file_diff", { repoPath, filePath, baseBranch });
+}
+
 export async function getBranchComparisonInfo(repoPath, baseBranch) {
   return invoke("get_branch_comparison_info", { repoPath, baseBranch });
 }
@@ -59,6 +63,10 @@ export async function pushBranch(repoPath, branch) {
   return invoke("push_branch", { repoPath, branch });
 }
 
+export async function commitChanges(repoPath, message) {
+  return invoke("commit_changes", { repoPath, message });
+}
+
 export async function stageFile(repoPath, filePath) {
   return invoke("stage_file", { repoPath, filePath });
 }
@@ -85,6 +93,22 @@ export async function discardAll(repoPath) {
 
 export async function getWorktrees(repoPath) {
   return invoke("get_worktrees", { repoPath });
+}
+
+export async function createWorktree(repoPath, worktreePath, branch, newBranch = true) {
+  return invoke("create_worktree", { repoPath, worktreePath, branch, newBranch });
+}
+
+export async function removeWorktree(repoPath, worktreePath, force = false) {
+  return invoke("remove_worktree", { repoPath, worktreePath, force });
+}
+
+export async function pruneWorktrees(repoPath) {
+  return invoke("prune_worktrees", { repoPath });
+}
+
+export async function openInTerminal(path) {
+  return invoke("open_in_terminal", { path });
 }
 
 export async function startWatcher(path) {

@@ -5,7 +5,7 @@ use std::sync::mpsc::channel;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 
-const DEBOUNCE: Duration = Duration::from_millis(400);
+const DEBOUNCE: Duration = Duration::from_millis(600);
 
 fn is_git_state_change(p: &Path) -> bool {
     let s = p.to_string_lossy();
@@ -45,6 +45,10 @@ fn is_ignored_dir_name(name: &str) -> bool {
             | ".venv"
             | "venv"
             | "__pycache__"
+            | "objects"
+            | "logs"
+            | "hooks"
+            | "lfs"
     )
 }
 
@@ -100,7 +104,16 @@ pub fn watch(
 
     if let Some(common_dir) = common_git_dir {
         if common_dir.exists() && !common_dir.starts_with(path) {
-            let _ = watcher.watch(common_dir, RecursiveMode::Recursive);
+            // Watch common .git directory non-recursively (catches HEAD, index, config)
+            let _ = watcher.watch(common_dir, RecursiveMode::NonRecursive);
+            let refs_dir = common_dir.join("refs");
+            if refs_dir.exists() {
+                let _ = watcher.watch(&refs_dir, RecursiveMode::Recursive);
+            }
+            let worktrees_dir = common_dir.join("worktrees");
+            if worktrees_dir.exists() {
+                let _ = watcher.watch(&worktrees_dir, RecursiveMode::Recursive);
+            }
         }
     }
 

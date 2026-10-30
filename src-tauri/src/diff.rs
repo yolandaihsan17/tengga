@@ -11,7 +11,7 @@ pub struct Hunk {
     pub id: String,
     pub header: String,
     pub lines: Vec<Line>,
-    pub source: String, // "unstaged" | "staged"
+    pub source: String, // "unstaged" | "staged" | "branch_compare"
 }
 
 #[derive(Serialize, Clone, Debug, PartialEq, Eq)]
@@ -24,6 +24,10 @@ pub struct FileDiff {
     pub has_staged: bool,
     pub has_unstaged: bool,
     pub is_untracked: bool,
+    #[serde(default)]
+    pub is_truncated: bool,
+    #[serde(default)]
+    pub hunks_truncated: bool,
 }
 
 // server-side only: enough info to rebuild a patch for a single hunk
@@ -33,14 +37,47 @@ pub struct HunkPatch {
     pub source: String,
 }
 
-/// Parses `git diff` output for one source ("unstaged" or "staged") into
-/// FileDiffs, and returns the patch material needed to apply/revert each hunk.
+pub const MAX_FILES_WITH_FULL_HUNKS: usize = 200;
+pub const MAX_HUNKS_PER_FILE: usize = 35;
+pub const MAX_LINES_PER_HUNK: usize = 600;
+pub const MAX_LOCKFILE_LINES_PER_HUNK: usize = 120;
+
+pub fn is_lockfile_or_generated(path: &str) -> bool {
+    let lower = path.to_lowercase();
+    lower.ends_with("package-lock.json")
+        || lower.ends_with("yarn.lock")
+        || lower.ends_with("pnpm-lock.yaml")
+        || lower.ends_with("cargo.lock")
+        || lower.ends_with("composer.lock")
+        || lower.ends_with("poetry.lock")
+        || lower.ends_with("gemfile.lock")
+        || lower.ends_with(".min.js")
+        || lower.ends_with(".min.css")
+        || lower.ends_with(".map")
+        || lower.ends_with(".bundle.js")
+}
+
+/// Parses `git diff` output for one source ("unstaged" or "staged" or "branch_compare") into
+/// FileDiffs, capping hunks on very large diffs to avoid IPC and WebKit DOM explosion.
 pub fn parse_diff(raw: &str, source: &str) -> (Vec<FileDiff>, Vec<(String, HunkPatch)>) {
+    parse_diff_internal(raw, source, Some(MAX_FILES_WITH_FULL_HUNKS))
+}
+
+/// Parse diff for a single file on-demand with no file-count limit.
+pub fn parse_single_file_diff(raw: &str, source: &str) -> (Vec<FileDiff>, Vec<(String, HunkPatch)>) {
+    parse_diff_internal(raw, source, None)
+}
+
+fn parse_diff_internal(
+    raw: &str,
+    source: &str,
+    max_files_with_hunks: Option<usize>,
+) -> (Vec<FileDiff>, Vec<(String, HunkPatch)>) {
     let mut files = Vec::new();
     let mut patches = Vec::new();
 
     for file_block in split_file_blocks(raw) {
-        let path = match extract_path(&file_block) {
+        let path = match extract_path(file_block) {
             Some(p) => p,
             None => continue,
         };
@@ -56,35 +93,94 @@ pub fn parse_diff(raw: &str, source: &str) -> (Vec<FileDiff>, Vec<(String, HunkP
                 has_staged: source == "staged",
                 has_unstaged: source == "unstaged",
                 is_untracked: false,
+                is_truncated: false,
+                hunks_truncated: false,
             });
             continue;
         }
 
-        let file_header = extract_header(&file_block);
-        let mut hunks = Vec::new();
+        let is_lockfile = is_lockfile_or_generated(&path);
+        let line_limit = if is_lockfile {
+            MAX_LOCKFILE_LINES_PER_HUNK
+        } else {
+            MAX_LINES_PER_HUNK
+        };
+
+        let should_defer_hunks = match max_files_with_hunks {
+            Some(limit) => files.len() >= limit,
+            None => false,
+        };
+
         let mut additions = 0u32;
         let mut deletions = 0u32;
 
-        for (hunk_idx, hunk_text) in split_hunks(&file_block).into_iter().enumerate() {
+        if should_defer_hunks {
+            // Count additions/deletions directly without allocating Hunk or Line structs
+            for line in file_block.lines() {
+                if line.starts_with('+') && !line.starts_with("+++") {
+                    additions += 1;
+                } else if line.starts_with('-') && !line.starts_with("---") {
+                    deletions += 1;
+                }
+            }
+
+            files.push(FileDiff {
+                path,
+                additions,
+                deletions,
+                hunks: Vec::new(),
+                is_binary: false,
+                has_staged: source == "staged",
+                has_unstaged: source == "unstaged",
+                is_untracked: false,
+                is_truncated: false,
+                hunks_truncated: true,
+            });
+            continue;
+        }
+
+        let file_header = extract_header(file_block);
+        let mut hunks = Vec::new();
+        let mut file_is_truncated = false;
+
+        let hunks_list = split_hunks(file_block);
+        for (hunk_idx, hunk_text) in hunks_list.into_iter().enumerate() {
             let header = hunk_text.lines().next().unwrap_or("").to_string();
             let id = format!("{}:{}:{}:{}", path, source, hunk_idx, header);
-            let lines = parse_hunk_lines(&hunk_text, &mut additions, &mut deletions);
 
-            hunks.push(Hunk {
-                id: id.clone(),
-                header,
-                lines,
-                source: source.to_string(),
-            });
+            if hunk_idx < MAX_HUNKS_PER_FILE {
+                let (lines, lines_truncated) =
+                    parse_hunk_lines(hunk_text, &mut additions, &mut deletions, line_limit);
+                if lines_truncated {
+                    file_is_truncated = true;
+                }
 
-            patches.push((
-                id,
-                HunkPatch {
-                    file_header: file_header.clone(),
-                    hunk_text,
+                hunks.push(Hunk {
+                    id: id.clone(),
+                    header,
+                    lines,
                     source: source.to_string(),
-                },
-            ));
+                });
+
+                patches.push((
+                    id,
+                    HunkPatch {
+                        file_header: file_header.clone(),
+                        hunk_text: hunk_text.to_string(),
+                        source: source.to_string(),
+                    },
+                ));
+            } else {
+                // If past MAX_HUNKS_PER_FILE, still count additions and deletions
+                file_is_truncated = true;
+                for line in hunk_text.lines().skip(1) {
+                    if line.starts_with('+') {
+                        additions += 1;
+                    } else if line.starts_with('-') {
+                        deletions += 1;
+                    }
+                }
+            }
         }
 
         if !hunks.is_empty() {
@@ -97,6 +193,8 @@ pub fn parse_diff(raw: &str, source: &str) -> (Vec<FileDiff>, Vec<(String, HunkP
                 has_staged: source == "staged",
                 has_unstaged: source == "unstaged",
                 is_untracked: false,
+                is_truncated: file_is_truncated,
+                hunks_truncated: false,
             });
         }
     }
@@ -104,20 +202,27 @@ pub fn parse_diff(raw: &str, source: &str) -> (Vec<FileDiff>, Vec<(String, HunkP
     (files, patches)
 }
 
-fn split_file_blocks(raw: &str) -> Vec<String> {
+fn split_file_blocks(raw: &str) -> Vec<&str> {
     let mut blocks = Vec::new();
-    let mut current = String::new();
-    for line in raw.lines() {
-        if line.starts_with("diff --git") && !current.is_empty() {
-            blocks.push(current.clone());
-            current.clear();
+    let marker = "\ndiff --git";
+    let mut start_idx = 0;
+
+    for (i, _) in raw.match_indices(marker) {
+        let block_end = i + 1; // keep newline with preceding block
+        let block = &raw[start_idx..block_end];
+        if !block.trim().is_empty() {
+            blocks.push(block);
         }
-        current.push_str(line);
-        current.push('\n');
+        start_idx = block_end;
     }
-    if !current.is_empty() {
-        blocks.push(current);
+
+    if start_idx < raw.len() {
+        let rest = &raw[start_idx..];
+        if !rest.trim().is_empty() {
+            blocks.push(rest);
+        }
     }
+
     blocks
 }
 
@@ -169,32 +274,49 @@ fn extract_header(block: &str) -> String {
     header
 }
 
-fn split_hunks(block: &str) -> Vec<String> {
+fn split_hunks(block: &str) -> Vec<&str> {
     let mut hunks = Vec::new();
-    let mut current = String::new();
-    let mut in_hunk = false;
+    let mut start_idx: Option<usize> = None;
+    let mut line_start = 0;
 
     for line in block.lines() {
         if line.starts_with("@@") {
-            if in_hunk {
-                hunks.push(current.clone());
-                current.clear();
+            if let Some(s) = start_idx {
+                let hunk = &block[s..line_start];
+                if !hunk.trim().is_empty() {
+                    hunks.push(hunk);
+                }
             }
-            in_hunk = true;
+            start_idx = Some(line_start);
         }
-        if in_hunk {
-            current.push_str(line);
-            current.push('\n');
+        line_start = match block[line_start..].find('\n') {
+            Some(nl_idx) => line_start + nl_idx + 1,
+            None => block.len(),
+        };
+    }
+
+    if let Some(s) = start_idx {
+        if s < block.len() {
+            let hunk = &block[s..];
+            if !hunk.trim().is_empty() {
+                hunks.push(hunk);
+            }
         }
     }
-    if in_hunk && !current.is_empty() {
-        hunks.push(current);
-    }
+
     hunks
 }
 
-fn parse_hunk_lines(hunk_text: &str, additions: &mut u32, deletions: &mut u32) -> Vec<Line> {
+fn parse_hunk_lines(
+    hunk_text: &str,
+    additions: &mut u32,
+    deletions: &mut u32,
+    max_lines: usize,
+) -> (Vec<Line>, bool) {
     let mut lines = Vec::new();
+    let mut total_lines = 0;
+    let mut truncated = false;
+
     for line in hunk_text.lines().skip(1) {
         let (kind, content) = if let Some(rest) = line.strip_prefix('+') {
             *additions += 1;
@@ -205,12 +327,27 @@ fn parse_hunk_lines(hunk_text: &str, additions: &mut u32, deletions: &mut u32) -
         } else {
             ("context", line.strip_prefix(' ').unwrap_or(line))
         };
+
+        total_lines += 1;
+        if lines.len() < max_lines {
+            lines.push(Line {
+                kind: kind.to_string(),
+                content: content.to_string(),
+            });
+        } else {
+            truncated = true;
+        }
+    }
+
+    if truncated {
+        let omitted = total_lines - lines.len();
         lines.push(Line {
-            kind: kind.to_string(),
-            content: content.to_string(),
+            kind: "context".to_string(),
+            content: format!("... [Diff truncated: {} lines hidden for performance] ...", omitted),
         });
     }
-    lines
+
+    (lines, truncated)
 }
 
 #[cfg(test)]
@@ -485,5 +622,51 @@ Binary files a/images/logo.png and b/images/logo.png differ
         assert_eq!(file.deletions, 0);
         assert!(file.is_binary);
         assert_eq!(file.hunks.len(), 0);
+    }
+
+    #[test]
+    fn test_lockfile_truncation() {
+        let mut diff = String::from("diff --git a/package-lock.json b/package-lock.json\nindex 1111..2222 100644\n--- a/package-lock.json\n+++ b/package-lock.json\n@@ -1,500 +1,500 @@\n");
+        for i in 0..300 {
+            diff.push_str(&format!("+  \"dep_{}\": \"1.0.0\",\n", i));
+        }
+
+        let (files, _) = parse_diff(&diff, "unstaged");
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].path, "package-lock.json");
+        assert_eq!(files[0].additions, 300); // exact count preserved!
+        assert!(files[0].is_truncated);
+        // Hunk should have MAX_LOCKFILE_LINES_PER_HUNK (120) + 1 truncated info line = 121 lines
+        assert_eq!(files[0].hunks[0].lines.len(), 121);
+        assert!(files[0].hunks[0].lines.last().unwrap().content.contains("Diff truncated"));
+    }
+
+    #[test]
+    fn test_deferred_hunks_on_massive_files() {
+        let mut diff = String::new();
+        // Generate diff with 205 files
+        for f in 0..205 {
+            diff.push_str(&format!(
+                "diff --git a/file_{}.txt b/file_{}.txt\nindex 11..22 100644\n--- a/file_{}.txt\n+++ b/file_{}.txt\n@@ -1,2 +1,2 @@\n-old\n+new\n",
+                f, f, f, f
+            ));
+        }
+
+        let (files, _) = parse_diff(&diff, "unstaged");
+        assert_eq!(files.len(), 205);
+        // First 200 files should have hunks
+        assert_eq!(files[0].hunks.len(), 1);
+        assert!(!files[0].hunks_truncated);
+        assert_eq!(files[199].hunks.len(), 1);
+        assert!(!files[199].hunks_truncated);
+
+        // Files beyond 200 should have empty hunks and hunks_truncated = true
+        assert_eq!(files[200].hunks.len(), 0);
+        assert!(files[200].hunks_truncated);
+        assert_eq!(files[200].additions, 1);
+        assert_eq!(files[200].deletions, 1);
+
+        assert_eq!(files[204].hunks.len(), 0);
+        assert!(files[204].hunks_truncated);
     }
 }

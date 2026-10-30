@@ -62,6 +62,51 @@ async fn get_worktrees(repo_path: String) -> Result<Vec<git::WorktreeInfo>, Stri
     .map_err(|e| e.to_string())?
 }
 
+#[tauri::command]
+async fn create_worktree(
+    repo_path: String,
+    worktree_path: String,
+    branch: String,
+    new_branch: bool,
+) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        git::create_worktree(&PathBuf::from(repo_path), &worktree_path, &branch, new_branch)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn remove_worktree(
+    repo_path: String,
+    worktree_path: String,
+    force: bool,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        git::remove_worktree(&PathBuf::from(repo_path), &worktree_path, force)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn prune_worktrees(repo_path: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        git::prune_worktrees(&PathBuf::from(repo_path))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn open_in_terminal(path: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        git::open_terminal(&PathBuf::from(path))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[derive(serde::Serialize)]
 struct ComparisonInfo {
     ahead: u32,
@@ -162,6 +207,8 @@ fn get_diff(
                             has_staged: false,
                             has_unstaged: true,
                             is_untracked: true,
+                            is_truncated: false,
+                            hunks_truncated: false,
                         },
                     );
                 }
@@ -184,6 +231,93 @@ fn get_diff(
     }
 
     Ok(all_files)
+}
+
+#[tauri::command]
+fn get_file_diff(
+    state: State<AppState>,
+    repo_path: String,
+    file_path: String,
+    base_branch: Option<String>,
+) -> Result<Option<FileDiff>, String> {
+    let repo = PathBuf::from(&repo_path);
+
+    let (files, patches) = match base_branch.as_deref() {
+        Some(base) if !base.is_empty() && base != "HEAD" => {
+            let raw = git::diff_file_against_base(&repo, base, &file_path)?;
+            diff::parse_single_file_diff(&raw, "branch_compare")
+        }
+        _ => {
+            let unstaged_raw = git::diff_file_unstaged(&repo, &file_path)?;
+            let staged_raw = git::diff_file_staged(&repo, &file_path)?;
+
+            let (unstaged_files, unstaged_patches) =
+                diff::parse_single_file_diff(&unstaged_raw, "unstaged");
+            let (staged_files, staged_patches) =
+                diff::parse_single_file_diff(&staged_raw, "staged");
+
+            let mut files: HashMap<String, FileDiff> = HashMap::new();
+
+            for mut f in staged_files {
+                f.has_staged = true;
+                f.has_unstaged = false;
+                f.is_untracked = false;
+                files.insert(f.path.clone(), f);
+            }
+
+            for f in unstaged_files {
+                files
+                    .entry(f.path.clone())
+                    .and_modify(|existing| {
+                        existing.additions += f.additions;
+                        existing.deletions += f.deletions;
+                        existing.hunks.extend(f.hunks.clone());
+                        existing.has_unstaged = true;
+                        if f.is_binary {
+                            existing.is_binary = true;
+                        }
+                    })
+                    .or_insert_with(|| {
+                        let mut item = f;
+                        item.has_staged = false;
+                        item.has_unstaged = true;
+                        item.is_untracked = false;
+                        item
+                    });
+            }
+
+            let mut untracked_patches = Vec::new();
+            if files.is_empty() {
+                if let Ok(raw_u) = git::diff_untracked(&repo, &file_path) {
+                    let (u_files, u_p) = diff::parse_single_file_diff(&raw_u, "unstaged");
+                    if let Some(mut first) = u_files.into_iter().next() {
+                        first.has_staged = false;
+                        first.has_unstaged = true;
+                        first.is_untracked = true;
+                        files.insert(first.path.clone(), first);
+                        untracked_patches.extend(u_p);
+                    }
+                }
+            }
+
+            let patches: Vec<(String, HunkPatch)> = unstaged_patches
+                .into_iter()
+                .chain(staged_patches)
+                .chain(untracked_patches)
+                .collect();
+            (files.into_values().collect(), patches)
+        }
+    };
+
+    if !patches.is_empty() {
+        let mut patches_by_repo = state.hunk_patches.lock().unwrap();
+        let repo_patches = patches_by_repo.entry(repo_path).or_default();
+        for (id, p) in patches {
+            repo_patches.insert(id, p);
+        }
+    }
+
+    Ok(files.into_iter().next())
 }
 
 #[tauri::command]
@@ -224,6 +358,15 @@ fn get_file_content(repo_path: String, file_path: String) -> Result<String, Stri
 
     if !full_path.exists() {
         return Err("File does not exist on disk".to_string());
+    }
+
+    let meta = std::fs::metadata(&full_path).map_err(|e| e.to_string())?;
+    const MAX_VIEW_SIZE: u64 = 3 * 1024 * 1024; // 3 MB cap
+    if meta.len() > MAX_VIEW_SIZE {
+        return Err(format!(
+            "File size ({} MB) exceeds the 3 MB viewing limit. Open in an external editor to view large files.",
+            meta.len() / (1024 * 1024)
+        ));
     }
 
     let bytes = std::fs::read(&full_path).map_err(|e| e.to_string())?;
@@ -276,6 +419,15 @@ async fn pull_branch(repo_path: String, branch: String) -> Result<String, String
 async fn push_branch(repo_path: String, branch: String) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || {
         git::push_branch(&PathBuf::from(repo_path), &branch)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn commit_changes(repo_path: String, message: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        git::commit(&PathBuf::from(repo_path), &message)
     })
     .await
     .map_err(|e| e.to_string())?
@@ -488,6 +640,7 @@ fn main() {
             stop_watcher,
             stop_all_watchers,
             get_diff,
+            get_file_diff,
             accept_hunk,
             reject_hunk,
             get_repo_files,
@@ -499,6 +652,7 @@ fn main() {
             get_branch_comparison_info,
             pull_branch,
             push_branch,
+            commit_changes,
             stage_file,
             unstage_file,
             discard_file,
@@ -506,6 +660,10 @@ fn main() {
             unstage_all,
             discard_all,
             get_worktrees,
+            create_worktree,
+            remove_worktree,
+            prune_worktrees,
+            open_in_terminal,
             set_window_blur_intensity,
             search_repo_content,
             start_drag_window,

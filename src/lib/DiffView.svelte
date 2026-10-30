@@ -1,5 +1,5 @@
 <script>
-  import { tick } from "svelte";
+  import { tick, onDestroy } from "svelte";
   import HunkView from "./HunkView.svelte";
   import FindReplace from "./FindReplace.svelte";
   import { highlightCode } from "./syntax.js";
@@ -21,6 +21,31 @@
   export let disabled = false;
   export let targetLine = null;
   export let targetQuery = null;
+  export let reviewNotes = [];
+  export let onAddNote = () => {};
+  export let onDeleteNote = () => {};
+  export let onOpenReviewNotes = () => {};
+
+  $: totalNotesCount = reviewNotes ? reviewNotes.length : 0;
+  let isCopiedFileDiff = false;
+
+  function handleCopyFileDiffForAI() {
+    if (!file || !file.hunks || file.hunks.length === 0) return;
+    let md = `### Diff in \`${file.path}\` (+${file.additions} / -${file.deletions})\n\`\`\`diff\n`;
+    for (const h of file.hunks) {
+      md += `${h.header}\n`;
+      for (const l of h.lines) {
+        const prefix = l.kind === "add" ? "+" : l.kind === "remove" ? "-" : " ";
+        md += `${prefix}${l.content}\n`;
+      }
+    }
+    md += "```\n";
+    navigator.clipboard.writeText(md);
+    isCopiedFileDiff = true;
+    setTimeout(() => {
+      isCopiedFileDiff = false;
+    }, 2000);
+  }
 
   let activeView = "diff"; // "diff" | "content"
   let editedContent = "";
@@ -183,11 +208,12 @@
   $: {
     if (lineCount !== cachedLineCount) {
       cachedLineCount = lineCount;
-      gutterText = Array.from({ length: lineCount }, (_, i) => i + 1).join("\n");
+      const count = Math.min(lineCount, 5000);
+      gutterText = Array.from({ length: count }, (_, i) => i + 1).join("\n");
     }
   }
 
-  // Progressive syntax highlighting: highlight first 800 lines instantly, rest in background
+  // Progressive syntax highlighting: highlight first 800 lines instantly, rest in background (max 1800 lines)
   $: {
     const shouldHighlight = (activeView === "content" || !hasHunks) && editedContent && file;
     if (shouldHighlight) {
@@ -211,6 +237,7 @@
     const lines = content.split("\n");
     const total = lines.length;
     const FIRST_CHUNK = 800;
+    const MAX_CHUNK = 1800;
 
     if (total <= FIRST_CHUNK) {
       highlightedHtml = highlightCode(content, path);
@@ -220,14 +247,14 @@
     // 1. Instantly highlight the first 800 lines (< 15ms) so file opens with zero lag
     highlightedHtml = highlightCode(content, path, FIRST_CHUNK);
 
-    // 2. Progressively highlight remaining chunks in non-blocking background frames
+    // 2. Progressively highlight remaining chunks in non-blocking background frames up to MAX_CHUNK
     let currentLimit = FIRST_CHUNK;
     function highlightNextChunk() {
       highlightTimer = setTimeout(() => {
         if (version !== currentHighlightVersion) return;
-        currentLimit += 1200;
-        if (currentLimit >= total) {
-          highlightedHtml = highlightCode(content, path);
+        currentLimit += 1000;
+        if (currentLimit >= total || currentLimit >= MAX_CHUNK) {
+          highlightedHtml = highlightCode(content, path, MAX_CHUNK);
         } else {
           highlightedHtml = highlightCode(content, path, currentLimit);
           highlightNextChunk();
@@ -237,6 +264,14 @@
 
     highlightNextChunk();
   }
+
+  onDestroy(() => {
+    if (highlightTimer) {
+      clearTimeout(highlightTimer);
+      highlightTimer = null;
+    }
+    highlightedHtml = "";
+  });
 
   $: searchHtml = isFindOpen && matches.length > 0 ? buildSearchHtml(editedContent, matches, matchIndex) : "";
 
@@ -520,6 +555,30 @@
               </button>
             {/if}
           {/if}
+          {#if hasHunks}
+            <button
+              class="file-action-btn copy-ai"
+              on:click={handleCopyFileDiffForAI}
+              title="Copy entire file diff in Markdown for AI prompt"
+            >
+              <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor">
+                <path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25v-7.5z"/>
+                <path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25v-7.5zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25h-7.5z"/>
+              </svg>
+              <span>{isCopiedFileDiff ? "Copied!" : "Copy Diff for AI"}</span>
+            </button>
+          {/if}
+          <button
+            class="file-action-btn review-notes-btn"
+            class:has-active-notes={totalNotesCount > 0}
+            on:click={() => onOpenReviewNotes && onOpenReviewNotes()}
+            title="Open review notes & export prompt drawer"
+          >
+            <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor">
+              <path fill-rule="evenodd" d="M1 8c0-3.866 3.134-7 7-7s7 3.134 7 7-3.134 7-7 7a6.96 6.96 0 0 1-3.668-1.042L1.5 15l1.042-2.832A6.96 6.96 0 0 1 1 8zm7-5.5a5.5 5.5 0 1 0 0 11 5.474 5.474 0 0 0 2.964-.868.75.75 0 0 1 .65-.078l1.716.63-.63-1.716a.75.75 0 0 1 .078-.65A5.474 5.474 0 0 0 13.5 8 5.5 5.5 0 0 0 8 2.5z"/>
+            </svg>
+            <span>Notes {totalNotesCount > 0 ? `(${totalNotesCount})` : ""}</span>
+          </button>
           {#if !hasHunks && !file.is_binary && lineCount}
             <span class="line-count-meta">{lineCount} lines</span>
           {/if}
@@ -577,8 +636,12 @@
         {#each file.hunks as hunk (hunk.id)}
           <HunkView
             {hunk}
+            filePath={file.path}
+            {reviewNotes}
             onAccept={(id) => onAccept(file.path, id)}
             onReject={(id) => onReject(file.path, id)}
+            {onAddNote}
+            {onDeleteNote}
           />
         {/each}
       {:else if file.is_binary}
@@ -736,6 +799,21 @@
     color: var(--text-primary);
   }
 
+  .file-action-btn.copy-ai:hover {
+    background: var(--bg-hover);
+    color: var(--accent-emerald);
+  }
+
+  .file-action-btn.review-notes-btn.has-active-notes {
+    background: var(--accent-emerald-soft);
+    color: var(--accent-emerald);
+  }
+
+  .file-action-btn.review-notes-btn:hover {
+    background: var(--bg-hover);
+    color: var(--accent-emerald);
+  }
+
   .crumb-sep {
     color: var(--text-dim);
     font-size: 11px;
@@ -871,8 +949,6 @@
     overflow: hidden;
     position: relative;
     box-shadow: var(--shadow-card);
-    backdrop-filter: var(--backdrop-filter, blur(16px));
-    -webkit-backdrop-filter: var(--backdrop-filter, blur(16px));
   }
 
   .gutter-col {

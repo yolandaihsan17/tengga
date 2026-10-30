@@ -106,6 +106,155 @@ pub fn list_worktrees(repo: &Path) -> Result<Vec<WorktreeInfo>, String> {
     Ok(worktrees)
 }
 
+pub fn create_worktree(
+    repo: &Path,
+    worktree_path: &str,
+    branch: &str,
+    new_branch: bool,
+) -> Result<String, String> {
+    let trimmed_path = worktree_path.trim();
+    if trimmed_path.is_empty() {
+        return Err("Worktree path cannot be empty".to_string());
+    }
+
+    let mut args = vec!["worktree", "add"];
+    let trimmed_branch = branch.trim();
+    if new_branch {
+        if trimmed_branch.is_empty() {
+            return Err("Branch name cannot be empty when creating a new branch".to_string());
+        }
+        args.push("-b");
+        args.push(trimmed_branch);
+        args.push(trimmed_path);
+    } else {
+        args.push(trimmed_path);
+        if !trimmed_branch.is_empty() {
+            args.push(trimmed_branch);
+        }
+    }
+
+    let output = Command::new("git")
+        .args(&args)
+        .current_dir(repo)
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    if output.status.success() {
+        let p = Path::new(trimmed_path);
+        let target_path = if p.is_absolute() {
+            p.to_path_buf()
+        } else {
+            repo.join(p)
+        };
+        let resolved = std::fs::canonicalize(&target_path).unwrap_or(target_path);
+        Ok(resolved.to_string_lossy().to_string())
+    } else {
+        let err = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        if err.is_empty() {
+            Err(String::from_utf8_lossy(&output.stdout).trim().to_string())
+        } else {
+            Err(err)
+        }
+    }
+}
+
+pub fn remove_worktree(repo: &Path, worktree_path: &str, force: bool) -> Result<(), String> {
+    let trimmed_path = worktree_path.trim();
+    if trimmed_path.is_empty() {
+        return Err("Worktree path cannot be empty".to_string());
+    }
+    let mut args = vec!["worktree", "remove"];
+    if force {
+        args.push("--force");
+    }
+    args.push(trimmed_path);
+
+    let output = Command::new("git")
+        .args(&args)
+        .current_dir(repo)
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let err = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        if err.is_empty() {
+            Err(String::from_utf8_lossy(&output.stdout).trim().to_string())
+        } else {
+            Err(err)
+        }
+    }
+}
+
+pub fn prune_worktrees(repo: &Path) -> Result<(), String> {
+    let output = Command::new("git")
+        .args(["worktree", "prune"])
+        .current_dir(repo)
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
+    }
+}
+
+pub fn open_terminal(path: &Path) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        let path_str = path.to_str().unwrap_or(".");
+        for term in ["Ghostty", "iTerm", "Warp", "Terminal"] {
+            if let Ok(output) = Command::new("open").args(["-a", term, path_str]).output() {
+                if output.status.success() {
+                    return Ok(());
+                }
+            }
+        }
+        Command::new("open")
+            .arg(path_str)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let path_str = path.to_str().unwrap_or(".");
+        let res = Command::new("wt")
+            .args(["-d", path_str])
+            .spawn();
+        if res.is_err() {
+            Command::new("cmd")
+                .args(["/c", "start", "powershell", "-NoExit", "-Command", &format!("Set-Location '{}'", path.display())])
+                .spawn()
+                .map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let path_str = path.to_str().unwrap_or(".");
+        let terminals = [
+            ("ghostty", vec!["--working-directory", path_str]),
+            ("x-terminal-emulator", vec!["--working-directory", path_str]),
+            ("gnome-terminal", vec!["--working-directory", path_str]),
+            ("ptyxis", vec!["--working-directory", path_str]),
+            ("alacritty", vec!["--working-directory", path_str]),
+            ("konsole", vec!["--workdir", path_str]),
+            ("xterm", vec!["-e", &format!("cd '{}' && exec $SHELL", path_str)]),
+        ];
+        for (term, args) in terminals {
+            if Command::new(term).args(&args).spawn().is_ok() {
+                return Ok(());
+            }
+        }
+        Err("No supported terminal emulator found".to_string())
+    }
+}
+
 
 pub fn is_repo(path: &Path) -> bool {
     Command::new("git")
@@ -163,6 +312,14 @@ pub fn diff_staged(repo: &Path) -> Result<String, String> {
     run_git(repo, &["diff", "--staged"])
 }
 
+pub fn diff_file_unstaged(repo: &Path, file_path: &str) -> Result<String, String> {
+    run_git(repo, &["diff", "--", file_path])
+}
+
+pub fn diff_file_staged(repo: &Path, file_path: &str) -> Result<String, String> {
+    run_git(repo, &["diff", "--staged", "--", file_path])
+}
+
 pub fn diff_against_base(repo: &Path, base: &str) -> Result<String, String> {
     if base.starts_with('-') || base.is_empty() {
         return Err("Invalid branch name".to_string());
@@ -174,6 +331,21 @@ pub fn diff_against_base(repo: &Path, base: &str) -> Result<String, String> {
             // Fallback to two dots: direct diff between base and HEAD
             let two_dot = format!("{}..HEAD", base);
             run_git(repo, &["diff", &two_dot])
+        }
+        Err(e) => Err(e),
+    }
+}
+
+pub fn diff_file_against_base(repo: &Path, base: &str, file_path: &str) -> Result<String, String> {
+    if base.starts_with('-') || base.is_empty() {
+        return Err("Invalid branch name".to_string());
+    }
+    let arg = format!("{}...", base);
+    match run_git(repo, &["diff", &arg, "--", file_path]) {
+        Ok(out) => Ok(out),
+        Err(e) if e.contains("no merge base") => {
+            let two_dot = format!("{}..HEAD", base);
+            run_git(repo, &["diff", &two_dot, "--", file_path])
         }
         Err(e) => Err(e),
     }
@@ -464,6 +636,36 @@ pub fn discard_all(repo: &Path) -> Result<(), String> {
         Ok(())
     } else {
         Err(String::from_utf8_lossy(&clean.stderr).to_string())
+    }
+}
+
+pub fn commit(repo: &Path, message: &str) -> Result<String, String> {
+    let trimmed = message.trim();
+    if trimmed.is_empty() {
+        return Err("Commit message cannot be empty".to_string());
+    }
+    let normalized = trimmed.replace("\r\n", "\n");
+    let output = Command::new("git")
+        .args(["commit", "-m", &normalized])
+        .current_dir(repo)
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let summary = stdout
+            .lines()
+            .next()
+            .unwrap_or("Changes committed successfully")
+            .to_string();
+        Ok(summary)
+    } else {
+        let err = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        if err.is_empty() {
+            Err(String::from_utf8_lossy(&output.stdout).trim().to_string())
+        } else {
+            Err(err)
+        }
     }
 }
 
@@ -768,7 +970,60 @@ mod tests {
         let content = std::fs::read_to_string(&file_path).unwrap();
         assert_eq!(content, "hello world\n");
 
+        // Test commit
+        let _ = std::fs::write(&file_path, "hello world commit test\n");
+        stage_file(&temp_dir, "hello.txt").expect("should stage file before commit");
+        let commit_res = commit(&temp_dir, "feat: update hello").expect("commit should succeed");
+        assert!(!commit_res.is_empty());
+        let staged_after_commit = diff_staged(&temp_dir).expect("should get staged diff");
+        assert!(staged_after_commit.is_empty(), "staged diff should be empty after commit");
+
         let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_create_and_remove_worktree() {
+        let temp_dir = std::env::temp_dir().join(format!("tengga_wt_test_{}", uuid::Uuid::new_v4()));
+        let wt_path = std::env::temp_dir().join(format!("tengga_wt_sub_{}", uuid::Uuid::new_v4()));
+        let _ = std::fs::create_dir_all(&temp_dir);
+
+        let run = |dir: &Path, args: &[&str]| {
+            Command::new("git")
+                .args(args)
+                .current_dir(dir)
+                .output()
+                .expect("git cmd failed")
+        };
+
+        run(&temp_dir, &["init", "-b", "main"]);
+        run(&temp_dir, &["config", "user.name", "Test User"]);
+        run(&temp_dir, &["config", "user.email", "test@example.com"]);
+        let file_path = temp_dir.join("init.txt");
+        let _ = std::fs::write(&file_path, "initial\n");
+        run(&temp_dir, &["add", "init.txt"]);
+        run(&temp_dir, &["commit", "-m", "initial commit"]);
+
+        // Create worktree with new branch
+        let created_path = create_worktree(&temp_dir, wt_path.to_str().unwrap(), "my-new-branch", true)
+            .expect("create_worktree should succeed");
+        assert!(!created_path.is_empty());
+        assert!(wt_path.exists());
+
+        // Verify it shows up in list_worktrees
+        let list = list_worktrees(&temp_dir).expect("should list worktrees");
+        assert_eq!(list.len(), 2);
+        assert!(list.iter().any(|w| w.branch == "my-new-branch"));
+
+        // Remove worktree
+        remove_worktree(&temp_dir, wt_path.to_str().unwrap(), false).expect("remove_worktree should succeed");
+        let list_after = list_worktrees(&temp_dir).expect("should list worktrees after remove");
+        assert_eq!(list_after.len(), 1);
+
+        // Prune worktrees
+        prune_worktrees(&temp_dir).expect("prune_worktrees should succeed");
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+        let _ = std::fs::remove_dir_all(&wt_path);
     }
 
     #[test]

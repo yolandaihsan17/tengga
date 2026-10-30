@@ -53,9 +53,12 @@ export function getLanguage(filePath) {
   return null;
 }
 
+const ABSOLUTE_MAX_HIGHLIGHT_LINES = 1800;
+
 /**
  * Tokenize code into syntax-highlighted HTML spans according to VS Code Dark+ theme.
- * Supports progressive chunking for large files (maxLines).
+ * Supports progressive chunking for large files (maxLines), with a hard safety limit
+ * of 1,800 lines to protect WebKit DOM memory from ballooning.
  */
 export function highlightCode(code, filePath = "", maxLines = null) {
   if (!code) return "";
@@ -68,23 +71,24 @@ export function highlightCode(code, filePath = "", maxLines = null) {
     return fallback;
   }
 
-  // If maxLines is given and the text has more lines, highlight up to maxLines immediately and escape the rest
-  if (maxLines && maxLines > 0) {
-    const lines = code.split("\n");
-    if (lines.length > maxLines) {
-      const head = lines.slice(0, maxLines).join("\n");
-      const tail = lines.slice(maxLines).join("\n");
-      try {
-        let headHtml = Prism.highlight(head, Prism.languages[lang], lang);
-        let tailHtml = escapeHtml(tail);
-        let res = headHtml + "\n" + tailHtml;
-        if (code.endsWith("\n")) {
-          res += " ";
-        }
-        return res;
-      } catch (e) {
-        // Fallback to standard highlight below
+  const effectiveMaxLines = maxLines
+    ? Math.min(maxLines, ABSOLUTE_MAX_HIGHLIGHT_LINES)
+    : ABSOLUTE_MAX_HIGHLIGHT_LINES;
+
+  const lines = code.split("\n");
+  if (lines.length > effectiveMaxLines) {
+    const head = lines.slice(0, effectiveMaxLines).join("\n");
+    const tail = lines.slice(effectiveMaxLines).join("\n");
+    try {
+      let headHtml = Prism.highlight(head, Prism.languages[lang], lang);
+      let tailHtml = escapeHtml(tail);
+      let res = headHtml + "\n" + tailHtml;
+      if (code.endsWith("\n")) {
+        res += " ";
       }
+      return res;
+    } catch (e) {
+      // Fallback
     }
   }
 
